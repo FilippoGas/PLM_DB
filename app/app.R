@@ -131,6 +131,7 @@ ui <- page_navbar(
                         fill = TRUE
                     )
                 ),
+                #### Ancestry ----
                 card(
                     card_header("Ancestry"),
                     layout_sidebar(
@@ -143,6 +144,12 @@ ui <- page_navbar(
                                     "Ancestry" = "ancestry"
                                 ),
                                 selected = "haplotype"
+                            ),
+                            selectizeInput(
+                                inputId = "ancestry_frequency_filter",
+                                label = "Restrict to:",
+                                choice = NULL,
+                                options = list(placeholder = "Select an option")
                             )
                         ),
                         plotlyOutput("population")
@@ -327,12 +334,32 @@ server <- function(input, output, session){
         }
     })
     
+    ## Update ancestry plot filters
+    observe({
+        # Extract haplotype and trancsript ID from subset df 
+        current_df_val <- df()
+        haplotypes <- c("none", sort(unique(current_df_val$haplo_id)))
+        updateSelectizeInput(session,
+                             inputId = "ancestry_frequency_filter",
+                             label = "Restrict to:",
+                             choices = list(
+                                 "Haplotypes" = as.list(haplotypes)
+                             ),
+                             server = FALSE)
+        
+    })
+    
     ## Population frequencies ----
     output$population <- renderPlotly({
         validate(need(try(nrow(df())>0),"Waiting for a subset of haplotypes to be selected."))
+        plot_df <- df()
+        # Check if filtering options have been applied for the plot
+        if (str_detect(input$ancestry_frequency_filter, "ENSG")) {
+            plot_df <- plot_df %>% filter(haplo_id == input$ancestry_frequency_filter)
+        }
         if (input$group_by == "ancestry") {
             # Group by ancestry
-            p <- df() %>%
+            p <- plot_df %>%
                     select(haplo_id, AFR_freq, AMR_freq, EAS_freq, EUR_freq, SAS_freq) %>%
                     pivot_longer(cols = c("AFR_freq", "AMR_freq", "EAS_freq", "EUR_freq", "SAS_freq"),
                                  names_to = "ancestry",
@@ -345,7 +372,7 @@ server <- function(input, output, session){
             ggplotly(p)
         }else{
             # Group by haplotype
-            p <- df() %>%
+            p <- plot_df %>%
                     select(haplo_id, AFR_freq, AMR_freq, EAS_freq, EUR_freq, SAS_freq) %>%
                     pivot_longer(cols = c("AFR_freq", "AMR_freq", "EAS_freq", "EUR_freq", "SAS_freq"),
                                  names_to = "ancestry",
