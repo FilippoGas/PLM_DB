@@ -7,8 +7,17 @@ library(DT)
 library(hrbrthemes)
 library(plotly)
 library(viridis)
+library(ggpubr)
+library(scales)
+
 # LOAD DATA ----
-data <- read_tsv("../data/fake_data.tsv")
+data <- read_tsv("../data/interface_data.tsv")
+
+rsid_map <- read_tsv("../data/rsid_map.tsv")
+rsid_map <- rsid_map %>% column_to_rownames("rsid") %>% mutate(haplo_ids = strsplit(haplo_ids, ","))
+
+coords_map <- read_tsv("../data/coord_map.tsv")
+coords_map <- coords_map %>% column_to_rownames("variant_coord") %>% mutate(haplo_ids = strsplit(haplo_ids, ","))
 
 # UI ----
 ui <- page_navbar(
@@ -41,10 +50,16 @@ ui <- page_navbar(
                                 label = "ID",
                                 placeholder = "Insert ID here"
                             ),
-                            #### Transcript warning switch ----
-                            input_switch(
-                                id = "transcripts_warning",
-                                label = "Only use validated transcripts"
+                            accordion(
+                                accordion_panel(
+                                    title = "Advanced search",
+                                    #### Transcript warning switch ----
+                                    input_switch(
+                                        id = "transcripts_warning",
+                                        label = "Only use validated transcripts"
+                                    ),
+                                ),
+                                id = "advanced_search"
                             )
                 ),
                 ### Main content ----
@@ -68,7 +83,8 @@ ui <- page_navbar(
                         showcase = icon("disease", "fa-regular"),
                         textOutput(outputId = "involved_variants"), 
                         theme = "text-blue" 
-                    ) 
+                    ),
+                    max_height = "10%"
                 ),
                 
                 #### datatable ----
@@ -87,10 +103,10 @@ ui <- page_navbar(
                                 selectizeInput(
                                     inputId = "model",
                                     label = "Select the desired model:",
-                                    choices = list("ESMv2"="score_esm2",
-                                                   "PoET"="score_poet",
-                                                   "HAL9000"="score_hal9000",
-                                                   "Jarvis"="score_jarvis")
+                                    choices = list("ESMv2"=list("PLL" = "esm_PLL",
+                                                                "PLLR max freq." = "esm_PLLR_maxfreq",
+                                                                "PLLR wt" = "esm_PLLR_ref")
+                                                   )
                                 ),
                                 selectizeInput(
                                     inputId = "score_distribution_filter",
@@ -113,10 +129,10 @@ ui <- page_navbar(
                                 selectizeInput(
                                     inputId = "delta",
                                     label = "Select the desired model's delta:",
-                                    choices = list("ESMv2"="delta_esm",
-                                                   "PoET"="delta_poet",
-                                                   "HAL9000"="delta_hal9000",
-                                                   "Jarvis"="delta_jarvis")
+                                    choices = list("ESMv2"=list("PLL" = "esm_PLL",
+                                                                "PLLR max freq." = "esm_PLLR_maxfreq",
+                                                                "PLLR wt" = "esm_PLLR_ref")
+                                                   )
                                 ),
                                 selectizeInput(
                                     inputId = "delta_distribution_filter",
@@ -160,7 +176,56 @@ ui <- page_navbar(
         ),
         ## About ----
         nav_panel(
-          title = "About"),
+            title = "About",
+            ### Value box ----
+            layout_column_wrap(
+                value_box( 
+                    title = "Genes",
+                    textOutput(outputId = "analyzed_genes"), 
+                    theme = "text-blue" 
+                ), 
+                value_box( 
+                    title = "Transcripts",
+                    textOutput(outputId = "analyzed_transcripts"), 
+                    theme = "text-blue" 
+                ), 
+                value_box( 
+                    title = "Haplotypes",
+                    textOutput(outputId = "analyzed_haplotypes"), 
+                    theme = "text-blue" 
+                ),
+                value_box( 
+                    title = "Variants",
+                    textOutput(outputId = "analyzed_variants"), 
+                    theme = "text-blue" 
+                ),
+                max_height = "10%"
+            ),
+            layout_column_wrap(
+                ### Haplotypes per gene distributions ----
+                card(
+                    card_header("Haplotypes per gene distribution"),
+                    plotlyOutput(outputId = "haplotype_gene_distribution"),
+                    full_screen = TRUE,
+                    fill = TRUE
+                ),
+                ### Variants per haplotype distributions ----
+                card(
+                    card_header("Variants per haplotype distribution"),
+                    plotlyOutput(outputId = "variant_haplotype_distribution"),
+                    full_screen = TRUE,
+                    fill = TRUE
+                ),
+                max_height = "40%"
+            ),
+            ### Models correlation ----
+            card(
+                card_header("Model scores correlation"),
+                plotlyOutput(outputId = "models_correlation"),
+                full_screen = TRUE,
+                fill = TRUE 
+            )
+        ),
         ## Download ----
         nav_panel(
             title = "Download",
@@ -179,7 +244,9 @@ ui <- page_navbar(
 # SERVER LOGIC ----
 server <- function(input, output, session){
     
-    ## Update ID text input ----
+    ## Search ----
+    
+    ### Update ID text input ----
     # Observe changes in the radioButtons
     observeEvent(input$search_type, {
         selected_type <- input$search_type
@@ -204,7 +271,7 @@ server <- function(input, output, session){
         )
     })
     
-    ## Subset dataframe ---- 
+    ### Subset dataframe ---- 
     df <- reactive({
         if (input$search_type == "ensg") {
             df <- data %>% filter(gene_id == input$search_id)
@@ -216,10 +283,12 @@ server <- function(input, output, session){
             df <- data %>% filter(transcript_id == input$search_id)
         }
         if (input$search_type == "coordinates") {
-            df <- data %>% filter(input$search_id %in% dna_changes)
+            haplotypes <- coords_map[input$search_id,"haplo_ids"][[1]]
+            df <- data %>% filter(haplo_id %in% haplotypes)
         }
         if (input$search_type == "rsid") {
-            df <- data %>% filter(input$search_id %in% rsid)
+            haplotypes <- rsid_map[input$search_id,"haplo_ids"][[1]]
+            df <- data %>% filter(haplo_id %in% haplotypes)
         }
         if (input$transcripts_warning) {
             df <- df %>% filter(warning == TRUE)
@@ -227,7 +296,7 @@ server <- function(input, output, session){
         return(df)
     })
     
-    ## Update value boxes ----
+    ### Update value boxes ----
     output$selected_haplotypes <- renderText({
         nrow(df() %>% select(haplo_id) %>% unique())
     })
@@ -244,12 +313,12 @@ server <- function(input, output, session){
         length(unique(variants))
     })
     
-    ## Datatable ----
+    ### Datatable ----
     output$datatable <- renderDataTable({
         df()
     })
     
-    ## Update distribution filters, both for scores and deltas----
+    ### Update distribution filters, both for scores and deltas----
     observe({
         # Extract haplotype and trancsript ID from subset df 
         current_df_val <- df()
@@ -274,7 +343,7 @@ server <- function(input, output, session){
         
     })
     
-    ## Score distribution plots ----
+    ### Score distribution plots ----
     output$score_distribution <- renderPlotly({
         if (nrow(df()>0)) {
             plot_df <- df()
@@ -285,26 +354,85 @@ server <- function(input, output, session){
             if (str_detect(input$score_distribution_filter, "ENSG")) {
                 plot_df <- plot_df %>% filter(haplo_id == input$score_distribution_filter)
             }
-            p <- data %>%
-                ggplot() +
-                geom_density(aes(x = !!sym(input$model)),
-                             fill = "#e6ab47",
-                             color = "#e39107",
-                             alpha = 0.8,
-                             adjust = 0.1) +
-                geom_vline(data = plot_df, 
-                           aes(xintercept = !!sym(input$model), text = paste0(haplo_id, " on transcript ",transcript_id, "\n", input$model, ": ", round(!!sym(input$model),2))),
-                           color = "#e34907") +
-                theme(legend.position = "none")
+            if (str_detect(input$model, "PLLR")) {
+                p <- data %>% filter(!input$model==0) %>% ggplot() +
+                                                            geom_density(
+                                                                aes(x = !!sym(input$model)),
+                                                                fill = "#e6ab47",
+                                                                color = "#e39107",
+                                                                alpha = 0.8,
+                                                                adjust = 0.5,
+                                                                stat = "count") +
+                                                            geom_vline(
+                                                                data = plot_df, 
+                                                                aes(xintercept = !!sym(input$model),
+                                                                    text = paste0(haplo_id,
+                                                                                  " on transcript ",
+                                                                                  transcript_id,
+                                                                                  "\n",
+                                                                                  input$model,
+                                                                                  ": ",
+                                                                                  round(!!sym(input$model),4)
+                                                                                  )
+                                                                    ),
+                                                                color = "#e34907") +
+                                                            theme(legend.position = "none") +
+                                                            scale_y_log10(name = "Density (log10 scale)",
+                                                                          breaks = trans_breaks("log10", function(x) 10^x),
+                                                                          labels = trans_format("log10", math_format(10^.x)
+                                                                                                )
+                                                                          )
+            }else{
+                p <- data %>% ggplot() +
+                                geom_density(
+                                    aes(x = !!sym(input$model)),
+                                    fill = "#e6ab47",
+                                    color = "#e39107",
+                                    alpha = 0.8,
+                                    adjust = 0.1) +
+                                geom_vline(
+                                    data = plot_df, 
+                                    aes(xintercept = !!sym(input$model),
+                                        text = paste0(haplo_id,
+                                                      " on transcript ",
+                                                      transcript_id,
+                                                      "\n",
+                                                      input$model,
+                                                      ": ",
+                                                      round(!!sym(input$model),4)
+                                        )
+                                    ),
+                                    color = "#e34907") +
+                                theme(legend.position = "none")
+            }
             ggplotly(p, tooltip = "text")
         }else{
-            p <- data %>% ggplot(aes(x = !!sym(input$model))) +
-                        geom_density(fill = "#e6ab47", color = "#e39107", alpha = 0.8, adjust = 0.1)
+            if (str_detect(input$model, "PLLR")) {
+                p <- data %>% filter(!input$model==0) %>% ggplot(aes(x = !!sym(input$model))) +
+                                                            geom_density(fill = "#e6ab47",
+                                                                         color = "#e39107",
+                                                                         alpha = 0.8,
+                                                                         adjust = 0.5,
+                                                                         stat = "count"
+                                                            ) +
+                                                            scale_y_log10(name = "Density (log10 scale)",
+                                                                          breaks = trans_breaks("log10", function(x) 10^x),
+                                                                          labels = trans_format("log10", math_format(10^.x)
+                                                                                                )
+                                                                          )
+            }else{
+                p <- data %>% ggplot(aes(x = !!sym(input$model))) +
+                                geom_density(fill = "#e6ab47",
+                                             color = "#e39107",
+                                             alpha = 0.8,
+                                             adjust = 0.1
+                                )
+            }
             ggplotly(p)
         }
     })
     
-    ## Score deltas distribution plots ----
+    ### Score deltas distribution plots ----
     output$score_delta_distribution <- renderPlotly({
         if (nrow(df()>0)) {
             plot_df <- df()
@@ -323,7 +451,8 @@ server <- function(input, output, session){
                              alpha = 0.8,
                              adjust = 0.1) +
                 geom_vline(data = plot_df, 
-                           aes(xintercept = !!sym(input$delta), text = paste0(haplo_id, " on transcript ", transcript_id, "\n", input$delta, ": ", round(!!sym(input$delta),2))),
+                           aes(xintercept = !!sym(input$delta),
+                               text = paste0(haplo_id, " on transcript ", transcript_id, "\n", input$delta, ": ", round(!!sym(input$delta),4))),
                            color = "#e34907") +
                 theme(legend.position = "none")
             ggplotly(p, tooltip = "text")
@@ -334,7 +463,7 @@ server <- function(input, output, session){
         }
     })
     
-    ## Update ancestry plot filters
+    ### Update ancestry plot filters ----
     observe({
         # Extract haplotype and trancsript ID from subset df 
         current_df_val <- df()
@@ -349,7 +478,7 @@ server <- function(input, output, session){
         
     })
     
-    ## Population frequencies ----
+    ### Population frequencies ----
     output$population <- renderPlotly({
         validate(need(try(nrow(df())>0),"Waiting for a subset of haplotypes to be selected."))
         plot_df <- df()
@@ -385,6 +514,89 @@ server <- function(input, output, session){
             ggplotly(p)
         }
     })
+    
+    ## About ----
+    
+    ### Update value boxes ----
+    output$analyzed_genes <- renderText({
+        nrow(data %>% select(gene_id) %>% unique())
+    })
+    output$analyzed_haplotypes <- renderText({
+        nrow(data %>% select(haplo_id) %>% unique())
+    })
+    output$analyzed_transcripts <- renderText({
+        nrow(data %>% select(transcript_id) %>% unique())
+    })
+    
+    output$analyzed_variants <- renderText({
+        subset <- data %>% select(dna_changes) %>% filter(!dna_changes == "wt")
+        variants <- c()
+        for(row in subset$dna_changes){
+            variants <- c(variants, str_split_1(row, pattern = ","))
+        }
+        length(unique(variants))
+    })
+    
+    ### haplotypes per gene distribution ----
+    output$haplotype_gene_distribution <- renderPlotly({
+        plot_df <- data %>%
+                        select(haplo_id, gene_id) %>%
+                        unique() %>%
+                        summarise(haplotype_count = n(), .by = gene_id)
+        p <- plot_df %>% ggplot(aes(x = haplotype_count)) +
+                            geom_histogram(stat = "count",
+                                           binwidth = 2,
+                                           fill = "#e6ab47",
+                                           color = "#e39107",
+                                           alpha = 0.8)
+        ggplotly(p)
+    })
+    ### variants per haplotype distribution ----
+    output$variant_haplotype_distribution <- renderPlotly({
+        plot_df <- data %>%
+            select(haplo_id, dna_changes) %>%
+            filter(!dna_changes=="wt") %>% 
+            unique()
+        plot_df[, "variant_count"] <- sapply(plot_df$dna_changes, function(x){
+                                            length(str_split_1(x, ","))
+                                        })
+        p <- plot_df %>% ggplot(aes(x = variant_count)) +
+            geom_histogram(stat = "count",
+                           binwidth = 2,
+                           fill = "#e6ab47",
+                           color = "#e39107",
+                           alpha = 0.8)
+        ggplotly(p)
+    })
+    
+    ### Model correlation ----
+    output$models_correlation <- renderPlotly({
+        score_columns <- colnames(data)[grep("score", colnames(data))]
+        couples <- expand.grid(score_columns, score_columns) %>%
+            filter(!Var1==Var2) %>%
+            arrange(Var1)
+        couples <- couples %>% slice_head(n = nrow(couples)/2) %>% mutate(collapsed = paste0(Var1, "-", Var2))
+        plots <- lapply(couples$collapsed, function(x){
+            var1 <- str_split_i(x, "-", 1)
+            var2 <- str_split_i(x, "-", 2)
+            data %>% ggplot(aes(x = !!sym(var1), y = !!sym(var2))) +
+                        geom_point(fill = "#e6ab47",
+                                   color = "#e39107") +
+                        ggtitle(paste0("Correlaion between ", var1, " and ", var2)) +
+                        stat_cor(method = "pearson")
+        })
+        
+        # p <- do.call("ggarrange", c(plots, list("ncol"=length(plots), "nrow"=1)))
+        do.call("subplot", c(plots, list = ("nrows"=1)))
+        
+        
+    })
+    
+    ## Download ----
+    
+    ## FAQ ----
+    
+    ## Contacts ----
     
 }
  
