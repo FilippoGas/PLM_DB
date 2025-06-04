@@ -76,9 +76,13 @@ ui <- page_navbar(
                                         max = 5,
                                         value = 5
                                     ),
-                                    checkboxInput(inputId = "tsl_NA",
-                                                  label = "Remove NAs",
-                                                  value = FALSE
+                                    input_switch("tsl_NA",
+                                                 "Remove NAs",
+                                                 value = FALSE
+                                    ),
+                                    input_switch("tsl_end_NF",
+                                                 "Remove END_NFs",
+                                                 value = FALSE
                                     )
                                 ),
                                 id = "advanced_search",
@@ -317,10 +321,16 @@ server <- function(input, output, session){
                 df <- df %>% filter(!grepl(paste0(input$variant_type_filter, collapse = "|"), df$variant_types))
             )
         }
-        if (input$tsl_filter) {
-            
+        # Tsl filter is always set to 5 by default, no need to check if it is set
+        try(
+            df <- df %>% filter(tsl <= input$tsl_filter | is.na(tsl))
+        )
+        if (input$tsl_NA) {
+            df <- df %>% filter(!grepl("NA",tx_notes))
         }
-        
+        if (input$tsl_end_NF) {
+            df <- df %>% filter(!grepl("end_NF",tx_notes))
+        }
         return(df)
     })
     
