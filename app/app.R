@@ -16,7 +16,7 @@ data <- read_tsv("../data/interface_data.tsv")
 rsid_map <- read_tsv("../data/rsid_map.tsv")
 rsid_map <- rsid_map %>% column_to_rownames("rsid") %>% mutate(haplo_ids = strsplit(haplo_ids, ","))
 
-coords_map <- read_tsv("../data/coord_map.tsv")
+coords_map <- read_tsv("../data/coords_map.tsv")
 coords_map <- coords_map %>% column_to_rownames("variant_coord") %>% mutate(haplo_ids = strsplit(haplo_ids, ","))
 
 # UI ----
@@ -30,11 +30,12 @@ ui <- page_navbar(
                 fillable = FALSE,
                 ### Sidebar ----
                 sidebar = sidebar(
-                            h4("Search options"),
+                            width = "20%",
+                            h3("Search options"),
                             #### Search type selector ----
                             radioButtons(
                                 inputId = "search_type",
-                                label = "Search by",
+                                label = h5("Search by"),
                                 choices = list(
                                     "Ensembl Gene ID" = "ensg",
                                     "Gene Symbol" = "hgnc",
@@ -53,13 +54,35 @@ ui <- page_navbar(
                             accordion(
                                 accordion_panel(
                                     title = "Advanced search",
-                                    #### Transcript warning switch ----
-                                    input_switch(
-                                        id = "transcripts_warning",
-                                        label = "Only use validated transcripts"
+                                    #### Variant type filter ----
+                                    checkboxGroupInput(
+                                        inputId = "variant_type_filter",
+                                        label = h5("Exclude haplotypes with:"),
+                                        choices = list("Synonymous variants" = "synonymous_variant",
+                                                       "Missense variants" = "missense_variant",
+                                                       "Nonsense variants" = "stop_gained",
+                                                       "Frameshift variants" = "framesift_variants",
+                                                       "In frame deletions" = "inframe_deletion",
+                                                       "In frame insertions" = "inframe_insertion",
+                                                       "Start loss" = "start_lost",
+                                                       "Start gain" = "initiator_codon_variant",
+                                                       "Stop loss" = "stop_lost")
                                     ),
+                                    #### Ensembl tsl filter ----
+                                    sliderInput(
+                                        inputId = "tsl_filter",
+                                        label = h5("Select desired Ensembl transcript support level (tsl):"),
+                                        min = 1,
+                                        max = 5,
+                                        value = 5
+                                    ),
+                                    checkboxInput(inputId = "tsl_NA",
+                                                  label = "Remove NAs",
+                                                  value = FALSE
+                                    )
                                 ),
-                                id = "advanced_search"
+                                id = "advanced_search",
+                                open = FALSE
                             )
                 ),
                 ### Main content ----
@@ -129,9 +152,7 @@ ui <- page_navbar(
                                 selectizeInput(
                                     inputId = "delta",
                                     label = "Select the desired model's delta:",
-                                    choices = list("ESMv2"=list("PLL" = "esm_PLL",
-                                                                "PLLR max freq." = "esm_PLLR_maxfreq",
-                                                                "PLLR wt" = "esm_PLLR_ref")
+                                    choices = list("ESMv2 Delta" = "delta_esm_PLL"
                                                    )
                                 ),
                                 selectizeInput(
@@ -277,7 +298,7 @@ server <- function(input, output, session){
             df <- data %>% filter(gene_id == input$search_id)
         }
         if (input$search_type == "hgnc") {
-            df <- data %>% filter(hgnc_symbol == input$search_id)
+            df <- data %>% filter(gene_symbol == input$search_id)
         }
         if (input$search_type == "transcript") {
             df <- data %>% filter(transcript_id == input$search_id)
@@ -290,9 +311,16 @@ server <- function(input, output, session){
             haplotypes <- rsid_map[input$search_id,"haplo_ids"][[1]]
             df <- data %>% filter(haplo_id %in% haplotypes)
         }
-        if (input$transcripts_warning) {
-            df <- df %>% filter(warning == TRUE)
+        # Check advanced filters
+        if (length(input$variant_type_filter)>0) {
+            try(
+                df <- df %>% filter(!grepl(paste0(input$variant_type_filter, collapse = "|"), df$variant_types))
+            )
         }
+        if (input$tsl_filter) {
+            
+        }
+        
         return(df)
     })
     
@@ -305,9 +333,9 @@ server <- function(input, output, session){
     })
         
     output$involved_variants <- renderText({
-        subset <- df() %>% select(dna_changes) %>% filter(!dna_changes == "wt")
+        subset <- df() %>% select(variant_coordinates) %>% filter(!variant_coordinates == "wt")
         variants <- c()
-        for(row in subset$dna_changes){
+        for(row in subset$variant_coordinates){
             variants <- c(variants, str_split_1(row, pattern = ","))
         }
         length(unique(variants))
@@ -467,13 +495,14 @@ server <- function(input, output, session){
     observe({
         # Extract haplotype and trancsript ID from subset df 
         current_df_val <- df()
-        haplotypes <- c("none", sort(unique(current_df_val$haplo_id)))
+        transcripts <- c("none", sort(unique(current_df_val$transcript_id)))
         updateSelectizeInput(session,
                              inputId = "ancestry_frequency_filter",
                              label = "Restrict to:",
                              choices = list(
-                                 "Haplotypes" = as.list(haplotypes)
+                                 "Transcripts" = as.list(transcripts)
                              ),
+                             selected = as.list(transcripts)[2], # the first would be "none"
                              server = FALSE)
         
     })
@@ -483,14 +512,15 @@ server <- function(input, output, session){
         validate(need(try(nrow(df())>0),"Waiting for a subset of haplotypes to be selected."))
         plot_df <- df()
         # Check if filtering options have been applied for the plot
-        if (str_detect(input$ancestry_frequency_filter, "ENSG")) {
-            plot_df <- plot_df %>% filter(haplo_id == input$ancestry_frequency_filter)
+        if (str_detect(input$ancestry_frequency_filter, "ENST")) {
+            plot_df <- plot_df %>% filter(transcript_id == input$ancestry_frequency_filter)
         }
         if (input$group_by == "ancestry") {
             # Group by ancestry
             p <- plot_df %>%
-                    select(haplo_id, AFR_freq, AMR_freq, EAS_freq, EUR_freq, SAS_freq) %>%
-                    pivot_longer(cols = c("AFR_freq", "AMR_freq", "EAS_freq", "EUR_freq", "SAS_freq"),
+                    select(frequency, haplo_id, AFR_freq, AMR_freq, EAS_freq, EUR_freq, SAS_freq) %>%
+                    dplyr::rename("Global" = "frequency") %>%
+                    pivot_longer(cols = c("Global", "AFR_freq", "AMR_freq", "EAS_freq", "EUR_freq", "SAS_freq"),
                                  names_to = "ancestry",
                                  values_to = "freq") %>% 
                     ggplot(aes(x = ancestry, y = freq, fill = haplo_id)) +
@@ -527,11 +557,11 @@ server <- function(input, output, session){
     output$analyzed_transcripts <- renderText({
         nrow(data %>% select(transcript_id) %>% unique())
     })
-    
+    # Read from stats file
     output$analyzed_variants <- renderText({
-        subset <- data %>% select(dna_changes) %>% filter(!dna_changes == "wt")
+        subset <- data %>% select(variant_coordinates) %>% filter(!variant_coordinates == "wt") %>% unique()
         variants <- c()
-        for(row in subset$dna_changes){
+        for(row in subset$variant_coordinates){
             variants <- c(variants, str_split_1(row, pattern = ","))
         }
         length(unique(variants))
@@ -553,14 +583,7 @@ server <- function(input, output, session){
     })
     ### variants per haplotype distribution ----
     output$variant_haplotype_distribution <- renderPlotly({
-        plot_df <- data %>%
-            select(haplo_id, dna_changes) %>%
-            filter(!dna_changes=="wt") %>% 
-            unique()
-        plot_df[, "variant_count"] <- sapply(plot_df$dna_changes, function(x){
-                                            length(str_split_1(x, ","))
-                                        })
-        p <- plot_df %>% ggplot(aes(x = variant_count)) +
+        p <- data %>% ggplot(aes(x = n_variants)) +
             geom_histogram(stat = "count",
                            binwidth = 2,
                            fill = "#e6ab47",
