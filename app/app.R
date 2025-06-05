@@ -331,6 +331,18 @@ server <- function(input, output, session){
         if (input$tsl_end_NF) {
             df <- df %>% filter(!grepl("end_NF",tx_notes))
         }
+        
+        if (length(unique(df$gene_id))>1) {
+                showModal(
+                    modalDialog(
+                        title = "Multiple genes",
+                        "The selected variant affects more than one gene, to focus on one gene only,
+                        copy its ID from the table and paste it into a new search!",
+                        easyClose = TRUE
+                    )
+                )
+        }
+        
         return(df)
     })
     
