@@ -389,7 +389,7 @@ server <- function(input, output, session){
             if (str_detect(input$score_distribution_filter, "ENST")) {
                 plot_df <- plot_df %>% filter(transcript_id == input$score_distribution_filter)
             }
-            if (str_detect(input$score_distribution_filter, "ENSG")) {
+            if (str_detect(input$score_distribution_filter, "\\.")) {
                 plot_df <- plot_df %>% filter(haplo_id == input$score_distribution_filter)
             }
             if (str_detect(input$model, "PLLR")) {
@@ -569,12 +569,7 @@ server <- function(input, output, session){
     })
     # Read from stats file
     output$analyzed_variants <- renderText({
-        subset <- data %>% select(variant_coordinates) %>% filter(!variant_coordinates == "wt") %>% unique()
-        variants <- c()
-        for(row in subset$variant_coordinates){
-            variants <- c(variants, str_split_1(row, pattern = ","))
-        }
-        length(unique(variants))
+        nrow(rsid_map)
     })
     
     ### haplotypes per gene distribution ----
