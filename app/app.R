@@ -254,6 +254,118 @@ ui <- page_navbar(
         ## Download ----
         nav_panel(
             title = "Download",
+            layout_sidebar(
+                fillable = FALSE,
+                ### Filters ----
+                sidebar = sidebar(
+                    width = "20%",
+                    h4("Select fields to download"),
+                    accordion(
+                        accordion_panel(
+                            title = "IDs",
+                            checkboxGroupInput(
+                                inputId = "IDs_selector",
+                                label = "",
+                                choices = list(
+                                    "Ensembl Gene ID" = "gene_id",
+                                    "Ensembl Transcript ID" = "transcript_id",
+                                    "Haplotype ID" = "haplo_id",
+                                    "Gene Symbol" = "gene_symbol",
+                                    "Uniprot ID" = "uniprot_ids",
+                                    "Protein ID" = "protein_ids",
+                                    "Variant rsid" = "rsids"
+                                ),
+                                selected = c("gene_id", "transcript_id", "haplo_id")
+                            )
+                        ),
+                        accordion_panel(
+                            title = "Variant info",
+                            checkboxGroupInput(
+                                inputId = "variant_info_selector",
+                                label = "",
+                                choices = list(
+                                    "Variant coordinates" = "variant_coordinates",
+                                    "Reference allele" = "ref_alleles",
+                                    "Alternative allele" = "alt_alleles",
+                                    "DNA changes" = "dna_changes",
+                                    "Protein changes" = "protein_changes",
+                                    "Variant type" = "variant_types"
+                                ),
+                                selected = "variant_coordinates"
+                            )
+                        ),
+                        accordion_panel(
+                            title = "Frequencies",
+                            checkboxGroupInput(
+                                inputId = "frequency_selector",
+                                label = "",
+                                choices = list(
+                                    "Global" = "frequency",
+                                    "AFR" = "AFR_freq",
+                                    "AMR" = "AMR_freq",
+                                    "EAS" = "EAS_freq",
+                                    "EUR" = "EUR_freq",
+                                    "SAS" = "SAS_freq"
+                                ),
+                                selected = "frequency"
+                            )
+                        ),
+                        accordion_panel(
+                            title = "Transcript info",
+                            checkboxGroupInput(
+                                inputId = "transcript_info_selector",
+                                label = "",
+                                choices = list(
+                                    "Truncation flag" = "is_truncated",
+                                    "Premature stop flag" = "has_premature_stop",
+                                    "Premature stop position" = "premature_stop_pos",
+                                    "Frameshift start" = "frameshift_start",
+                                    "Original position" = "original_pos",
+                                    "Shift" = "shift",
+                                    "Transcript length" = "transcript_length",
+                                    "Number of variants" = "n_variants",
+                                    "TSL - Ensembl Transcript Support Level" = "tsl"
+                                ),
+                                selected = "tsl"
+                            )
+                        ),
+                        accordion_panel(
+                            title = "Sequences",
+                            checkboxGroupInput(
+                                inputId = "sequence_selector",
+                                label = "",
+                                choices = list(
+                                    "DNA sequence" = "dna_sequence",
+                                    "Protein sequence" = "protein_sequence"
+                                )
+                            )
+                        ),
+                        accordion_panel(
+                            title = "Scores",
+                            checkboxGroupInput(
+                                inputId = "scores_selector",
+                                label = "",
+                                choices = list(
+                                    "ESMv2 PLL" = "esm_PLL",
+                                    "ESMv2 PLLR (w.r.t. max freq.)" = "esm_PLLR_maxfreq",
+                                    "ESMv2 PLLR (w.r.t. reference)" = "esm_PLLR_ref",
+                                    "ESMv2 delta PLL" = "delta_esm_PLL"
+                                ),
+                                selected = "esm_PLL"
+                            )
+                        ),
+                        open = FALSE
+                    )
+                ),
+                card(
+                    card_header("Preview table"),
+                    dataTableOutput(outputId = "preview_table"),
+                    full_screen = TRUE
+                ),
+                downloadButton(
+                    outputId = "download_button",
+                    label = "Download")
+            )
         ),
         ## FAQ ----
         nav_panel(
@@ -296,7 +408,7 @@ server <- function(input, output, session){
         )
     })
     
-    ### Subset dataframe ---- 
+    ### Subset search dataframe ---- 
     df <- reactive({
         if (input$search_type == "ensg") {
             df <- data %>% filter(gene_id == input$search_id)
@@ -363,7 +475,7 @@ server <- function(input, output, session){
         length(unique(variants))
     })
     
-    ### Datatable ----
+    ### Search datatable ---- 
     output$datatable <- renderDataTable({
         df()
     })
@@ -633,6 +745,39 @@ server <- function(input, output, session){
     })
     
     ## Download ----
+    
+    ### Subset download datatable ----
+    preview_df <- reactive({
+        if (length(input$IDs_selector)>0) {
+            preview_df <- data %>% select(input$IDs_selector)
+        }
+        if (length(input$variant_info_selector)>0) {
+            preview_df <- cbind(preview_df, data %>% select(input$variant_info_selector))
+        }
+        if (length(input$frequency_selector)>0) {
+            preview_df <- cbind(preview_df, data %>% select(input$frequency_selector))
+        }
+        if (length(input$transcript_info_selector)>0) {
+            preview_df <- cbind(preview_df, data %>% select(input$transcript_info_selector))
+        }
+        if (length(input$sequence_selector)>0) {
+            preview_df <- cbind(preview_df, data %>% select(input$sequence_selector))
+        }
+        return(preview_df)
+    })
+    
+    ### Download datatable ----
+    output$preview_table <- renderDataTable(
+        preview_df() %>% head()
+    )
+    
+    ### Download button ----
+    output$download_button <- downloadHandler(
+        filename = "scores.tsv",
+        content = function(file){
+            write_tsv(preview_df(), file)
+        }
+    )
     
     ## FAQ ----
     
