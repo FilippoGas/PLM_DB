@@ -498,8 +498,12 @@ ui <- page_navbar(
             )
         ),
         ## Contacts ----
-        nav_panel(
-            title = "Contacts"
+        nav_item(
+            tags$a(
+                "Contacts",
+                href = "https://www.cibio.unitn.it/785/laboratory-of-bioinformatics-and-computational-genomics",
+                target = "_blank"
+            )    
         ),
         nav_spacer()
 )
