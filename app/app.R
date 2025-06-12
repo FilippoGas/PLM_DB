@@ -21,6 +21,16 @@ coords_map <- coords_map %>% column_to_rownames("variant_coord") %>% mutate(hapl
 
 # UI ----
 ui <- page_navbar(
+    
+        ## CSS styling ----
+        
+        # Accordion title bold style
+        tags$head(
+            tags$style(HTML(".accordion-button {
+                            font-weight: bold;
+                            }")
+                       )
+        ),
         title = "PLM DB",
         nav_spacer(),
         ## Search ----
@@ -130,9 +140,9 @@ ui <- page_navbar(
                                 selectizeInput(
                                     inputId = "model",
                                     label = "Select the desired model:",
-                                    choices = list("ESMv2"=list("PLL" = "esm_PLL",
-                                                                "PLLR max freq." = "esm_PLLR_maxfreq",
-                                                                "PLLR wt" = "esm_PLLR_ref")
+                                    choices = list("ESMv2"=list("PLL" = "esmv2_PLL",
+                                                                "PLLR max freq." = "esmv2_PLLR_mf",
+                                                                "PLLR wt" = "esmv2_PLLR_wt")
                                                    )
                                 ),
                                 selectizeInput(
@@ -156,7 +166,7 @@ ui <- page_navbar(
                                 selectizeInput(
                                     inputId = "delta",
                                     label = "Select the desired model's delta:",
-                                    choices = list("ESMv2 Delta" = "delta_esm_PLL"
+                                    choices = list("ESMv2 Delta" = "esmv2_PLL_delta"
                                                    )
                                 ),
                                 selectizeInput(
@@ -246,7 +256,27 @@ ui <- page_navbar(
             ### Models correlation ----
             card(
                 card_header("Model scores correlation"),
-                plotlyOutput(outputId = "models_correlation"),
+                layout_sidebar(
+                    sidebar = sidebar(
+                        selectizeInput(
+                            inputId = "model1",
+                            label = "Select the desired model:",
+                            choices = list("none" = "none",
+                                           "PLL" = "esmv2_PLL",
+                                           "PLLR_mf" = "esmv2_PLLR_mf",
+                                           "PLLR_wt" = "esmv2_PLLR_wt")
+                        ),
+                        selectizeInput(
+                            inputId = "model2",
+                            label = "Select the desired model:",
+                            choices = list("none" = "none",
+                                           "PLL" = "esmv2_PLL",
+                                           "PLLR_mf" = "esmv2_PLLR_mf",
+                                           "PLLR_wt" = "esmv2_PLLR_wt")
+                        )
+                    ),
+                    plotOutput(outputId = "models_correlation"),
+                ),
                 full_screen = TRUE,
                 fill = TRUE 
             )
@@ -271,11 +301,11 @@ ui <- page_navbar(
                                     "Ensembl Transcript ID" = "transcript_id",
                                     "Haplotype ID" = "haplo_id",
                                     "Gene Symbol" = "gene_symbol",
-                                    "Uniprot ID" = "uniprot_ids",
-                                    "Protein ID" = "protein_ids",
+                                    "Uniprot ID" = "uniprot_id",
+                                    "Protein ID" = "protein_id",
                                     "Variant rsid" = "rsids"
                                 ),
-                                selected = c("gene_id", "transcript_id", "haplo_id")
+                                selected = c("gene_id", "transcript_id", "haplotype_id")
                             )
                         ),
                         accordion_panel(
@@ -284,14 +314,14 @@ ui <- page_navbar(
                                 inputId = "variant_info_selector",
                                 label = "",
                                 choices = list(
-                                    "Variant coordinates" = "variant_coordinates",
+                                    "Variant coordinates" = "variant_coordinates_hg38",
                                     "Reference allele" = "ref_alleles",
                                     "Alternative allele" = "alt_alleles",
                                     "DNA changes" = "dna_changes",
                                     "Protein changes" = "protein_changes",
                                     "Variant type" = "variant_types"
                                 ),
-                                selected = "variant_coordinates"
+                                selected = "variant_coordinates_hg38"
                             )
                         ),
                         accordion_panel(
@@ -321,7 +351,6 @@ ui <- page_navbar(
                                     "Premature stop position" = "premature_stop_pos",
                                     "Frameshift start" = "frameshift_start",
                                     "Original position" = "original_pos",
-                                    "Shift" = "shift",
                                     "Transcript length" = "transcript_length",
                                     "Number of variants" = "n_variants",
                                     "TSL - Ensembl Transcript Support Level" = "tsl"
@@ -346,12 +375,12 @@ ui <- page_navbar(
                                 inputId = "scores_selector",
                                 label = "",
                                 choices = list(
-                                    "ESMv2 PLL" = "esm_PLL",
-                                    "ESMv2 PLLR (w.r.t. max freq.)" = "esm_PLLR_maxfreq",
-                                    "ESMv2 PLLR (w.r.t. reference)" = "esm_PLLR_ref",
-                                    "ESMv2 delta PLL" = "delta_esm_PLL"
+                                    "ESMv2 PLL" = "esmv2_PLL",
+                                    "ESMv2 PLLR (w.r.t. max freq.)" = "esmv2_PLLR_mf",
+                                    "ESMv2 PLLR (w.r.t. wt)" = "esmv2_PLLR_wt",
+                                    "ESMv2 delta PLL" = "esmv2_PLL_delta"
                                 ),
-                                selected = "esm_PLL"
+                                selected = "esmv2_PLL"
                             )
                         ),
                         open = FALSE
@@ -369,7 +398,104 @@ ui <- page_navbar(
         ),
         ## FAQ ----
         nav_panel(
-            title = "FAQ"
+            title = "FAQ",
+            h1("Any question?", style = "text-align:center"),
+            fluidRow(
+                column(
+                    width = 8,
+                    offset = 2,
+                    accordion(
+                        id = "FAQ",
+                        accordion_panel(
+                            title = "What is HaploScoreDB?",
+                            "Risposta 1"
+                        ),
+                        accordion_panel(
+                            title = "What is a Protein Language Model?",
+                            "A protein language model is a class of probabilistic, computational
+                            models engineered to capture the complex statistical patterns inherent
+                            in protein sequences. The core purpose of these models is to
+                            learn a high-dimensional representation of the sequence space
+                            that corresponds to functional, evolutionarily viable proteins.
+                            To achieve this, these models are trained on extensive biological
+                            sequence databases using various techniques. A predominant self-supervised
+                            strategy is masked language modeling, where the model learns to
+                            predict omitted amino acids based on their surrounding context.
+                            Through this and similar tasks, the model implicitly learns fundamental
+                            principles of protein biology, including the co-evolutionary
+                            constraints between residue positions—information that is otherwise
+                            explicitly derived from the analysis of a Multiple Sequence Alignment (MSA).
+                            Once trained, a key function of these models is to evaluate an arbitrary
+                            protein sequence by assigning it a quantitative score. This score is
+                            formally calculated as a pseudo-log-likelihood. It represents the
+                            aggregate of the conditional probabilities of each amino acid given
+                            the context of the entire sequence. A higher pseudo-log-likelihood
+                            score indicates that the sequence has a higher probability under the
+                            learned statistical distribution, thereby providing a robust,
+                            quantitative measure of its biological plausibility and consistency
+                            with known evolutionary and structural constraints."
+                        ),
+                        accordion_panel(
+                            title = "How were the score calculated?",
+                            "Risposta 3"
+                        ),
+                        accordion_panel(
+                            title = "What do PLLR_wt and PLLR_mf mean?",
+                            "The Pseudo Log-Likelihood (PLL) of each haplotype-transcript
+                            couple should be compared to a reference to quantify how much a
+                            certain haplotype can shift the score of the transcript. In
+                            order to do so we adopted the Pseudo Log-Likelihood Ratio (PLLR) metric
+                            already known in literature. Since we are handling log-likelihoods,
+                            the ratio is the difference between two PLLs. We computed, for
+                            each score, its ratio with respect to the score of the most
+                            frequent haplotype for the specific transcript, namely PLLR-mf,
+                            and with respect to what is annotated as wild type in Ensembl,
+                            PLLR-wt. Most of the time these two ratios coincide."
+                        ),
+                        accordion_panel(
+                            title = "What do score deltas represent?",
+                            "Score deltas are transcript level metrics, meaning that all
+                            entries in the table sharing the same transcript ID will shar
+                            the same score delta (one per model). The score delta is computed
+                            as the difference between the maximum and the minimum score
+                            obtained by any haplotype of that transcript. Comparing the
+                            score delta of a transcript against the distribution of all
+                            score deltas should give a quantitative measure of the functional
+                            variability of a transcript in the population."
+                        ),
+                        accordion_panel(
+                            title = "How were protein sequences generated?",
+                            "For each transcript’s isoform, all haplotypes comprising 
+                            common variants were identified. For each of these haplotypes,
+                            a mutated sequence was generated by including the haplotype’s
+                            variants in the wild type coding sequence. When a Transcription
+                            Start Site is lost due to variants, the first next starting codon
+                            is used as Transcription Start Site. When a nonsense mutation
+                            occurs, the protein is truncated at that point."
+                        ),
+                        accordion_panel(
+                            title = "What types of genes and transcript are taken into consideration?",
+                            "Genes and transcripts annotations are downloaded from Ensembl.
+                            In total, 18741 protein coding genes and all their isoforms leading
+                            to 78282 transcripts were downloaded. Transcripts longer than [X] and
+                            shorter than [X] were removed due to model limitations."
+                        ),
+                        accordion_panel(
+                            title = "Where do genotype data come from?",
+                            "Genotypes data are taken from the phased 1000 Genomes release phase 3, aligned to reference genome hg38.
+                            Lowy-Gallego E, Fairley S, Zheng-Bradley X et al. Variant calling on the GRCh38 assembly with the data 
+                            from phase three of the 1000 Genomes Project . Wellcome Open Res 2019, 4:50 
+                            (https://doi.org/10.12688/wellcomeopenres.15126.2)"
+                        ),
+                        accordion_panel(
+                            title = "Which variants were taken into consideration?",
+                            "To generate the database of mutated sequences all (SNPs and INDELs)
+                            phased common (MAF > 1%) coding variants identified in 1000 Genomes were taken into consideration."
+                        ),
+                        open = FALSE
+                    )
+                )
+            )
         ),
         ## Contacts ----
         nav_panel(
@@ -421,11 +547,11 @@ server <- function(input, output, session){
         }
         if (input$search_type == "coordinates") {
             haplotypes <- coords_map[input$search_id,"haplo_ids"][[1]]
-            df <- data %>% filter(haplo_id %in% haplotypes)
+            df <- data %>% filter(haplotype_id %in% haplotypes)
         }
         if (input$search_type == "rsid") {
             haplotypes <- rsid_map[input$search_id,"haplo_ids"][[1]]
-            df <- data %>% filter(haplo_id %in% haplotypes)
+            df <- data %>% filter(haplotype_id %in% haplotypes)
         }
         # Check advanced filters
         if (length(input$variant_type_filter)>0) {
@@ -460,16 +586,16 @@ server <- function(input, output, session){
     
     ### Update value boxes ----
     output$selected_haplotypes <- renderText({
-        nrow(df() %>% select(haplo_id) %>% unique())
+        nrow(df() %>% select(haplotype_id) %>% unique())
     })
     output$affected_transcripts <- renderText({
         nrow(df() %>% select(transcript_id) %>% unique())
     })
         
     output$involved_variants <- renderText({
-        subset <- df() %>% select(variant_coordinates) %>% filter(!variant_coordinates == "wt")
+        subset <- df() %>% select(variant_coordinates_hg38) %>% filter(!variant_coordinates_hg38 == "wt")
         variants <- c()
-        for(row in subset$variant_coordinates){
+        for(row in subset$variant_coordinates_hg38){
             variants <- c(variants, str_split_1(row, pattern = ","))
         }
         length(unique(variants))
@@ -484,7 +610,7 @@ server <- function(input, output, session){
     observe({
         # Extract haplotype and trancsript ID from subset df 
         current_df_val <- df()
-        haplotypes <- c("none", sort(unique(current_df_val$haplo_id)))
+        haplotypes <- c("none", sort(unique(current_df_val$haplotype_id)))
         transcripts <- c("none", sort(unique(current_df_val$transcript_id)))
         updateSelectizeInput(session,
                              inputId = "score_distribution_filter",
@@ -514,7 +640,7 @@ server <- function(input, output, session){
                 plot_df <- plot_df %>% filter(transcript_id == input$score_distribution_filter)
             }
             if (str_detect(input$score_distribution_filter, "\\.")) {
-                plot_df <- plot_df %>% filter(haplo_id == input$score_distribution_filter)
+                plot_df <- plot_df %>% filter(haplotype_id == input$score_distribution_filter)
             }
             if (str_detect(input$model, "PLLR")) {
                 p <- data %>% filter(!input$model==0) %>% ggplot() +
@@ -603,7 +729,7 @@ server <- function(input, output, session){
                 plot_df <- plot_df %>% filter(transcript_id == input$delta_distribution_filter)
             }
             if (str_detect(input$delta_distribution_filter, "ENSG")) {
-                plot_df <- plot_df %>% filter(haplo_id == input$delta_distribution_filter)
+                plot_df <- plot_df %>% filter(haplotype_id == input$delta_distribution_filter)
             }
             p <- data %>%
                 ggplot() +
@@ -614,7 +740,7 @@ server <- function(input, output, session){
                              adjust = 0.1) +
                 geom_vline(data = plot_df, 
                            aes(xintercept = !!sym(input$delta),
-                               text = paste0(haplo_id, " on transcript ", transcript_id, "\n", input$delta, ": ", round(!!sym(input$delta),4))),
+                               text = paste0(haplotype_id, " on transcript ", transcript_id, "\n", input$delta, ": ", round(!!sym(input$delta),4))),
                            color = "#e34907") +
                 theme(legend.position = "none")
             ggplotly(p, tooltip = "text")
@@ -652,12 +778,12 @@ server <- function(input, output, session){
         if (input$group_by == "ancestry") {
             # Group by ancestry
             p <- plot_df %>%
-                    select(frequency, haplo_id, AFR_freq, AMR_freq, EAS_freq, EUR_freq, SAS_freq) %>%
+                    select(frequency, haplotype_id, AFR_freq, AMR_freq, EAS_freq, EUR_freq, SAS_freq) %>%
                     dplyr::rename("Global" = "frequency") %>%
                     pivot_longer(cols = c("Global", "AFR_freq", "AMR_freq", "EAS_freq", "EUR_freq", "SAS_freq"),
                                  names_to = "ancestry",
                                  values_to = "freq") %>% 
-                    ggplot(aes(x = ancestry, y = freq, fill = haplo_id)) +
+                    ggplot(aes(x = ancestry, y = freq, fill = haplotype_id)) +
                         geom_bar(position = "dodge", stat = "identity") +
                         scale_fill_viridis(discrete = TRUE) +
                         theme(legend.position = "none",
@@ -666,11 +792,11 @@ server <- function(input, output, session){
         }else{
             # Group by haplotype
             p <- plot_df %>%
-                    select(haplo_id, AFR_freq, AMR_freq, EAS_freq, EUR_freq, SAS_freq) %>%
+                    select(haplotype_id, AFR_freq, AMR_freq, EAS_freq, EUR_freq, SAS_freq) %>%
                     pivot_longer(cols = c("AFR_freq", "AMR_freq", "EAS_freq", "EUR_freq", "SAS_freq"),
                                  names_to = "ancestry",
                                  values_to = "freq") %>% 
-                    ggplot(aes(x = haplo_id, y = freq, fill = ancestry)) +
+                    ggplot(aes(x = haplotype_id, y = freq, fill = ancestry)) +
                     geom_bar(position = "dodge", stat = "identity") +
                     scale_fill_viridis(discrete = TRUE) +
                     theme(legend.position = "none",
@@ -686,7 +812,7 @@ server <- function(input, output, session){
         nrow(data %>% select(gene_id) %>% unique())
     })
     output$analyzed_haplotypes <- renderText({
-        nrow(data %>% select(haplo_id) %>% unique())
+        nrow(data %>% select(haplotype_id) %>% unique())
     })
     output$analyzed_transcripts <- renderText({
         nrow(data %>% select(transcript_id) %>% unique())
@@ -699,7 +825,7 @@ server <- function(input, output, session){
     ### haplotypes per gene distribution ----
     output$haplotype_gene_distribution <- renderPlotly({
         plot_df <- data %>%
-                        select(haplo_id, gene_id) %>%
+                        select(haplotype_id, gene_id) %>%
                         unique() %>%
                         summarise(haplotype_count = n(), .by = gene_id)
         p <- plot_df %>% ggplot(aes(x = haplotype_count)) +
@@ -722,26 +848,11 @@ server <- function(input, output, session){
     })
     
     ### Model correlation ----
-    output$models_correlation <- renderPlotly({
-        score_columns <- colnames(data)[grep("score", colnames(data))]
-        couples <- expand.grid(score_columns, score_columns) %>%
-            filter(!Var1==Var2) %>%
-            arrange(Var1)
-        couples <- couples %>% slice_head(n = nrow(couples)/2) %>% mutate(collapsed = paste0(Var1, "-", Var2))
-        plots <- lapply(couples$collapsed, function(x){
-            var1 <- str_split_i(x, "-", 1)
-            var2 <- str_split_i(x, "-", 2)
-            data %>% ggplot(aes(x = !!sym(var1), y = !!sym(var2))) +
-                        geom_point(fill = "#e6ab47",
-                                   color = "#e39107") +
-                        ggtitle(paste0("Correlaion between ", var1, " and ", var2)) +
-                        stat_cor(method = "pearson")
-        })
-        
-        # p <- do.call("ggarrange", c(plots, list("ncol"=length(plots), "nrow"=1)))
-        do.call("subplot", c(plots, list = ("nrows"=1)))
-        
-        
+    output$models_correlation <- renderPlot({
+        validate(need(!input$model1=="none" && !input$model2=="none", "Waiting for two models to be selected."))
+        p <- data %>% ggplot(aes(x = !!sym(input$model1), y = !!sym(input$model2))) +
+                                geom_hex()
+        p
     })
     
     ## Download ----
@@ -778,13 +889,7 @@ server <- function(input, output, session){
             write_tsv(preview_df(), file)
         }
     )
-    
-    ## FAQ ----
-    
-    ## Contacts ----
-    
 }
- 
 
 # RUN APP ----
 shinyApp(ui, server)
