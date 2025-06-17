@@ -45,7 +45,7 @@ ui <- tagList(
                             }")
                        )
         ),
-        title = "PLM DB",
+        title = "HapScoreDB",
         nav_spacer(),
         ## Search ----
         nav_panel(
@@ -156,8 +156,8 @@ ui <- tagList(
                                         inputId = "model",
                                         label = "Select the desired model:",
                                         choices = list("ESMv2"=list("PLL" = "esmv2_PLL",
-                                                                    "PLLR max freq." = "esmv2_PLLR_mf",
-                                                                    "PLLR wt" = "esmv2_PLLR_wt")
+                                                                    "PLLR_mf" = "esmv2_PLLR_mf",
+                                                                    "PLLR_wt" = "esmv2_PLLR_wt")
                                                        )
                                     ),
                                     selectizeInput(
@@ -421,7 +421,15 @@ ui <- tagList(
                             id = "FAQ",
                             accordion_panel(
                                 title = "What is HapScoreDB?",
-                                "Risposta 1"
+                                "HapScoreDB is an innovative database providing a comprehensive collection of Protein Language
+                                Model (PLM) scores for haplotype-resolved protein-coding sequences, encompassing all human
+                                transcript isoforms. Our approach uniquely integrates GENCODE and Ensembl gene and transcript
+                                models with phased variant data from the 1000 Genomes Project. For each protein-coding transcript,
+                                we have meticulously reconstructed sequences of common protein haplotypes containing single or
+                                multiple variants, including both SNPs (single nucleotide polymorphisms) and INDELs
+                                (insertions/deletions). To quantify functional impact, we computed scores using state-of-the-art protein
+                                language models such as ESM-2, ProSST, and PoET, providing deep and contextualized
+                                representations for each protein haplotype."
                             ),
                             accordion_panel(
                                 title = "What is a Protein Language Model?",
@@ -490,8 +498,8 @@ ui <- tagList(
                                 title = "What types of genes and transcript are taken into consideration?",
                                 "Genes and transcripts annotations are downloaded from Ensembl.
                                 In total, 18741 protein coding genes and all their isoforms leading
-                                to 78282 transcripts were downloaded. Transcripts longer than [X] and
-                                shorter than [X] were removed due to model limitations."
+                                to 78282 transcripts were downloaded. Transcripts longer than 4000 and
+                                shorter than 10 amino acids were removed due to model limitations."
                             ),
                             accordion_panel(
                                 title = "Where do genotype data come from?",
