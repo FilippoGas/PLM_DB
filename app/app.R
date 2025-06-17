@@ -9,6 +9,7 @@ library(plotly)
 library(viridis)
 library(ggpubr)
 library(scales)
+library(patchwork)
 
 # LOAD DATA ----
 data <- read_tsv("../data/interface_data.tsv")
