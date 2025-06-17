@@ -168,7 +168,7 @@ ui <- tagList(
                                         options = list(placeholder = "Select an option")
                                     )
                                 ),
-                                plotlyOutput(outputId = "score_distribution")
+                                withSpinner(plotlyOutput(outputId = "score_distribution"), type = 4, color = "#e39107")
                             ),
                             full_screen = TRUE,
                             fill = TRUE
@@ -192,7 +192,7 @@ ui <- tagList(
                                         options = list(placeholder = "Select an option")
                                     )
                                 ),
-                                plotlyOutput(outputId = "score_delta_distribution")
+                                withSpinner(plotlyOutput(outputId = "score_delta_distribution"), type = 4, color = "#e49107")
                             ),
                             full_screen = TRUE,
                             fill = TRUE
@@ -219,7 +219,7 @@ ui <- tagList(
                                     options = list(placeholder = "Select an option")
                                 )
                             ),
-                            plotlyOutput("population")
+                            withSpinner(plotlyOutput("population"), type = 4, color = "#e39107")
                         ),
                         full_screen = TRUE
                     )
@@ -228,71 +228,72 @@ ui <- tagList(
             ## About ----
             nav_panel(
                 title = "About",
-                ### Value box ----
-                layout_column_wrap(
-                    value_box( 
-                        title = "Genes",
-                        textOutput(outputId = "analyzed_genes"), 
-                        theme = "text-blue" 
-                    ), 
-                    value_box( 
-                        title = "Transcripts",
-                        textOutput(outputId = "analyzed_transcripts"), 
-                        theme = "text-blue" 
-                    ), 
-                    value_box( 
-                        title = "Haplotypes",
-                        textOutput(outputId = "analyzed_haplotypes"), 
-                        theme = "text-blue" 
-                    ),
-                    value_box( 
-                        title = "Variants",
-                        textOutput(outputId = "analyzed_variants"), 
-                        theme = "text-blue" 
-                    ),
-                    max_height = "10%"
-                ),
-                layout_column_wrap(
-                    ### Haplotypes per gene distributions ----
-                    card(
-                        card_header("Haplotypes per gene distribution"),
-                        plotlyOutput(outputId = "haplotype_gene_distribution"),
-                        full_screen = TRUE,
-                        fill = TRUE
-                    ),
-                    ### Variants per haplotype distributions ----
-                    card(
-                        card_header("Variants per haplotype distribution"),
-                        plotlyOutput(outputId = "variant_haplotype_distribution"),
-                        full_screen = TRUE,
-                        fill = TRUE
-                    ),
-                    max_height = "40%"
-                ),
-                ### Models correlation ----
-                card(
-                    card_header("Model scores correlation"),
-                    layout_sidebar(
-                        sidebar = sidebar(
-                            selectizeInput(
-                                inputId = "model1",
-                                label = "Select the desired model:",
-                                choices = list("none" = "none",
-                                               "ESMv2" = "esmv2",
-                                               "PoET" = "poet")
-                            ),
-                            selectizeInput(
-                                inputId = "model2",
-                                label = "Select the desired model:",
-                                choices = list("none" = "none",
-                                               "ESMv2" = "esmv2",
-                                               "PoET" = "poet")
-                            )
+                page_fillable(
+                    ### Value box ----
+                    layout_column_wrap(
+                        value_box( 
+                            title = "Genes",
+                            textOutput(outputId = "analyzed_genes"), 
+                            theme = "text-blue" 
+                        ), 
+                        value_box( 
+                            title = "Transcripts",
+                            textOutput(outputId = "analyzed_transcripts"), 
+                            theme = "text-blue" 
+                        ), 
+                        value_box( 
+                            title = "Haplotypes",
+                            textOutput(outputId = "analyzed_haplotypes"), 
+                            theme = "text-blue" 
                         ),
-                        plotOutput(outputId = "models_correlation"),
+                        value_box( 
+                            title = "Variants",
+                            textOutput(outputId = "analyzed_variants"), 
+                            theme = "text-blue" 
+                        ),
+                        max_height = "10%"
                     ),
-                    full_screen = TRUE,
-                    fill = TRUE 
+                    layout_column_wrap(
+                        ### Haplotypes per gene distributions ----
+                        card(
+                            card_header("Haplotypes per gene distribution"),
+                            plotlyOutput(outputId = "haplotype_gene_distribution"),
+                            full_screen = TRUE,
+                            fill = TRUE
+                        ),
+                        ### Variants per haplotype distributions ----
+                        card(
+                            card_header("Variants per haplotype distribution"),
+                            plotlyOutput(outputId = "variant_haplotype_distribution"),
+                            full_screen = TRUE,
+                            fill = TRUE
+                        )
+                    ),
+                    ### Models correlation ----
+                    card(
+                        card_header("Model scores correlation"),
+                        layout_sidebar(
+                            sidebar = sidebar(
+                                selectizeInput(
+                                    inputId = "model1",
+                                    label = "Select the desired model:",
+                                    choices = list("none" = "none",
+                                                   "ESMv2" = "esmv2",
+                                                   "PoET" = "poet")
+                                ),
+                                selectizeInput(
+                                    inputId = "model2",
+                                    label = "Select the desired model:",
+                                    choices = list("none" = "none",
+                                                   "ESMv2" = "esmv2",
+                                                   "PoET" = "poet")
+                                )
+                            ),
+                            withSpinner(plotOutput(outputId = "models_correlation"), type = 4, color = "#e39107")
+                        ),
+                        full_screen = TRUE,
+                        fill = TRUE 
+                    )
                 )
             ),
             ## Download ----
@@ -878,9 +879,19 @@ server <- function(input, output, session){
     output$models_correlation <- renderPlot({
         validate(need(!input$model1=="none" && !input$model2=="none", "Waiting for two models to be selected."))
         p1 <- data %>% ggplot(aes(x = !!sym(paste0(input$model1, "_PLL")), y = !!sym(paste0(input$model2, "_PLL")))) +
-                                geom_hex()
+                                geom_hex() + 
+                                scale_fill_gradient(
+                                    low = "gray90",
+                                    high = "#e39107", 
+                                    name = "Count"
+                                )
         p2 <- data %>% ggplot(aes(x = !!sym(paste0(input$model1, "_PLLR_wt")), y = !!sym(paste0(input$model2, "_PLLR_wt")))) +
-            geom_hex()
+                                geom_hex() + 
+                                scale_fill_gradient(
+                                    low = "gray90",
+                                    high = "#e39107",
+                                    name = "Count"
+                                )
         p1 + p2
     })
     
