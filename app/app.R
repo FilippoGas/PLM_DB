@@ -10,6 +10,7 @@ library(viridis)
 library(ggpubr)
 library(scales)
 library(patchwork)
+library(shinycssloaders)
 
 # LOAD DATA ----
 data <- read_tsv("../data/interface_data.tsv")
@@ -68,7 +69,7 @@ ui <- tagList(
                                     "Variant Coordinates" = "coordinates",
                                     "Variant rsid" = "rsid"
                                 ),
-                                selected = "ensg"
+                                selected = "hgnc"
                             ),
                             #### ID text input ----
                             textInput(
@@ -156,9 +157,15 @@ ui <- tagList(
                                     selectizeInput(
                                         inputId = "model",
                                         label = "Select the desired model:",
-                                        choices = list("ESMv2"=list("PLL" = "esmv2_PLL",
-                                                                    "PLLR_mf" = "esmv2_PLLR_mf",
-                                                                    "PLLR_wt" = "esmv2_PLLR_wt")
+                                        choices = list("ESM2"=list("PLL" = "esm_PLL",
+                                                                   "PLLR_mf" = "esm_PLLR_mf",
+                                                                   "PLLR_wt" = "esm_PLLR_wt"),
+                                                       "PoET"=list("PLL" = "poet_PLL",
+                                                                   "PLLR_mf" = "poet_PLLR_mf",
+                                                                   "PLLR_wt" = "poet_PLLR_wt"),
+                                                       "proSST"=list("PLL" = "prosst_PLL",
+                                                                     "PLLR_mf" = "prosst_PLLR_mf",
+                                                                     "PLLR_wt" = "prosst_PLLR_wt")
                                                        )
                                     ),
                                     selectizeInput(
@@ -182,7 +189,9 @@ ui <- tagList(
                                     selectizeInput(
                                         inputId = "delta",
                                         label = "Select the desired model's delta:",
-                                        choices = list("ESMv2 Delta" = "esmv2_PLL_delta"
+                                        choices = list("ESM2 Delta" = "esm_PLL_delta",
+                                                       "PoET Delta" = "poet_PLL_delta",
+                                                       "proSST Delta" = "prosst_PLL_delta"
                                                        )
                                     ),
                                     selectizeInput(
@@ -228,7 +237,7 @@ ui <- tagList(
             ## About ----
             nav_panel(
                 title = "About",
-                page_fillable(
+                page_fluid(
                     ### Value box ----
                     layout_column_wrap(
                         value_box( 
@@ -257,17 +266,18 @@ ui <- tagList(
                         ### Haplotypes per gene distributions ----
                         card(
                             card_header("Haplotypes per gene distribution"),
-                            plotlyOutput(outputId = "haplotype_gene_distribution"),
+                            withSpinner(plotlyOutput(outputId = "haplotype_gene_distribution"), type = 4, color = "#e39107"),
                             full_screen = TRUE,
                             fill = TRUE
                         ),
                         ### Variants per haplotype distributions ----
                         card(
                             card_header("Variants per haplotype distribution"),
-                            plotlyOutput(outputId = "variant_haplotype_distribution"),
+                            withSpinner(plotlyOutput(outputId = "variant_haplotype_distribution"), type = 4, color = "#e39107"),
                             full_screen = TRUE,
                             fill = TRUE
-                        )
+                        ),
+                        max_height = "40%"
                     ),
                     ### Models correlation ----
                     card(
@@ -278,15 +288,17 @@ ui <- tagList(
                                     inputId = "model1",
                                     label = "Select the desired model:",
                                     choices = list("none" = "none",
-                                                   "ESMv2" = "esmv2",
-                                                   "PoET" = "poet")
+                                                   "ESM2" = "esm",
+                                                   "PoET" = "poet",
+                                                   "proSST" = "prosst")
                                 ),
                                 selectizeInput(
                                     inputId = "model2",
                                     label = "Select the desired model:",
                                     choices = list("none" = "none",
-                                                   "ESMv2" = "esmv2",
-                                                   "PoET" = "poet")
+                                                   "ESM2" = "esm",
+                                                   "PoET" = "poet",
+                                                   "proSST" = "prosst")
                                 )
                             ),
                             withSpinner(plotOutput(outputId = "models_correlation"), type = 4, color = "#e39107")
@@ -390,12 +402,20 @@ ui <- tagList(
                                     inputId = "scores_selector",
                                     label = "",
                                     choices = list(
-                                        "ESMv2 PLL" = "esmv2_PLL",
-                                        "ESMv2 PLLR (w.r.t. max freq.)" = "esmv2_PLLR_mf",
-                                        "ESMv2 PLLR (w.r.t. wt)" = "esmv2_PLLR_wt",
-                                        "ESMv2 delta PLL" = "esmv2_PLL_delta"
+                                        "ESM2 PLL" = "esm_PLL",
+                                        "ESM2 PLLR_mf" = "esm_PLLR_mf",
+                                        "ESM2 PLLR_wt" = "esm_PLLR_wt",
+                                        "ESM2 delta PLL" = "esm_PLL_delta",
+                                        "PoET PLL" = "poet_PLL",
+                                        "PoET PLLR_mf" = "poet_PLLR_mf",
+                                        "PoET PLLR_wt" = "poet_PLLR_wt",
+                                        "PoET delta PLL" = "poet_PLL_delta",
+                                        "proSST PLL" = "prosst_PLL",
+                                        "proSST PLLR_mf" = "prosst_PLLR_mf",
+                                        "proSST PLLR_wt" = "prosst_PLLR_wt",
+                                        "proSST delta PLL" = "prosst_PLL_delta"
                                     ),
-                                    selected = "esmv2_PLL"
+                                    selected = "esm_PLL"
                                 )
                             ),
                             open = FALSE
@@ -423,35 +443,35 @@ ui <- tagList(
                             id = "FAQ",
                             accordion_panel(
                                 title = "What is HapScoreDB?",
-                                "HapScoreDB is an innovative database providing a comprehensive collection of Protein Language
+                                "HapScoreDB is a proteogenomic database providing a comprehensive collection of Protein Language
                                 Model (PLM) scores for haplotype-resolved protein-coding sequences, encompassing all human
                                 transcript isoforms. Our approach uniquely integrates GENCODE and Ensembl gene and transcript
                                 models with phased variant data from the 1000 Genomes Project. For each protein-coding transcript,
                                 we have meticulously reconstructed sequences of common protein haplotypes containing single or
                                 multiple variants, including both SNPs (single nucleotide polymorphisms) and INDELs
                                 (insertions/deletions). To quantify functional impact, we computed scores using state-of-the-art protein
-                                language models such as ESM-2, ProSST, and PoET, providing deep and contextualized
+                                language models such as ESM2, ProSST, and PoET, providing deep and contextualized
                                 representations for each protein haplotype."
                             ),
                             accordion_panel(
-                                title = "What is a Protein Language Model?",
-                                "A protein language model is a class of probabilistic, computational
+                              title = "What is a Protein Language Model?",
+                              "A protein language model is a class of probabilistic, computational
                                 models engineered to capture the complex statistical patterns inherent
                                 in protein sequences. The core purpose of these models is to
                                 learn a high-dimensional representation of the sequence space
                                 that corresponds to functional, evolutionarily viable proteins.
                                 To achieve this, these models are trained on extensive biological
-                                sequence databases using various techniques. A predominant self-supervised
-                                strategy is masked language modeling, where the model learns to
-                                predict omitted amino acids based on their surrounding context.
-                                Through this and similar tasks, the model implicitly learns fundamental
-                                principles of protein biology, including the co-evolutionary
+                                sequence databases with the same techniques used in Natural Language Processing. 
+                                A predominant self-supervised strategy is masked language modeling, where the model learns to
+                                predict masked amino acids based on their surrounding context.
+                                Through this and similar tasks, the model implicitly learns the complex patterns 
+                                underlying protein structure and function, including the co-evolutionary
                                 constraints between residue positions—information that is otherwise
                                 explicitly derived from the analysis of a Multiple Sequence Alignment (MSA).
-                                Once trained, a key function of these models is to evaluate an arbitrary
-                                protein sequence by assigning it a quantitative score. This score is
-                                formally calculated as a pseudo-log-likelihood. It represents the
-                                aggregate of the conditional probabilities of each amino acid given
+                                Once trained, a key downstream capability of these models is to evaluate an arbitrary
+                                protein sequence by assigning it a quantitative score. We compute this score as the 
+                                pseudo-log-likelihood of the sequences, 
+                                representing the average of conditional probabilities of each amino acid given
                                 the context of the entire sequence. A higher pseudo-log-likelihood
                                 score indicates that the sequence has a higher probability under the
                                 learned statistical distribution, thereby providing a robust,
@@ -459,8 +479,21 @@ ui <- tagList(
                                 with known evolutionary and structural constraints."
                             ),
                             accordion_panel(
-                                title = "How were the score calculated?",
-                                "Risposta 3"
+                              title = "How are the scores calculated?",
+                              "For ESM2 and ProSST, we compute the predicted pseudo-log-likelihoods of every protein sequence passed once to the models,
+                              without masking any amino acid, following Brandes et al 2023 (doi.org/10.1038/s41588-023-01465-0):
+                              
+                                
+                              We find this approach for masked language models to correlate well with experimental data
+                              from the ProteinGym benchmark in the zero-shot setting. Albeit at a slighly lower performance
+                              for single variant effect prediction compared to the commonly used wild-type marginals method,
+                              this type of score can capture the effect of indels and of epistatic interactions, when multiple variants are present in the same sequence.
+                              
+                              In the case of ProSST, the input structures are taken from the AlphaFoldDB (Varadi et al 2024, doi.org/10.1093/nar/gkad1011),
+                              and encoded using the 4096 long version of the structure sequence alphabet.
+                              For PoET, an autoregressive generative model, we use the same scoring function as in the original paper,
+                              averaging over multiple context lengths as in their work, 
+                              and using as inputs MSAs generated from the Uniref100 database employing the ColabFold protocol."
                             ),
                             accordion_panel(
                                 title = "What do PLLR_wt and PLLR_mf mean?",
@@ -478,7 +511,7 @@ ui <- tagList(
                             accordion_panel(
                                 title = "What do score deltas represent?",
                                 "Score deltas are transcript level metrics, meaning that all
-                                entries in the table sharing the same transcript ID will shar
+                                entries in the table sharing the same transcript ID will share
                                 the same score delta (one per model). The score delta is computed
                                 as the difference between the maximum and the minimum score
                                 obtained by any haplotype of that transcript. Comparing the
@@ -500,8 +533,9 @@ ui <- tagList(
                                 title = "What types of genes and transcript are taken into consideration?",
                                 "Genes and transcripts annotations are downloaded from Ensembl.
                                 In total, 18741 protein coding genes and all their isoforms leading
-                                to 78282 transcripts were downloaded. Transcripts longer than 4000 and
-                                shorter than 10 amino acids were removed due to model limitations."
+                                to 78282 transcripts were downloaded. Transcripts longer than 4000 amino acids were
+                                removed due to model and computational limitations, while transcripts
+                                shorter than 10 amino acids were removed due to "
                             ),
                             accordion_panel(
                                 title = "Where do genotype data come from?",
@@ -513,7 +547,7 @@ ui <- tagList(
                             accordion_panel(
                                 title = "Which variants were taken into consideration?",
                                 "To generate the database of mutated sequences all (SNPs and INDELs)
-                                phased common (MAF > 1%) coding variants identified in 1000 Genomes were taken into consideration."
+                                phased common (MAF > 0.5%) coding variants identified in 1000 Genomes were taken into consideration."
                             ),
                             open = FALSE
                         )
@@ -537,27 +571,33 @@ server <- function(input, output, session){
     
     ## Search ----
     
-    ### Update ID text input ----
+    ### Update ID text input and search bar example ----
     # Observe changes in the radioButtons
     observeEvent(input$search_type, {
         selected_type <- input$search_type
         new_label <- ""
         
         if (selected_type == "ensg") {
-            new_label <- "Ensembl Gene ID:"
+            new_label <- "Ensembl Gene ID (e.g.):"
+            example_search <- "ENSG00000003147"
         } else if (selected_type == "hgnc") {
-            new_label <- "HGNC gene symbol:"
+            new_label <- "HGNC gene symbol (e.g.):"
+            example_search <- "ICA1"
         }else if (selected_type == "transcript") {
-            new_label <- "Ensembl Transcript ID:"
+            new_label <- "Ensembl Transcript ID (e.g.):"
+            example_search <- "ENST00000265577"
         } else if (selected_type == "coordinates") {
-            new_label <- "Variant coordinates (chr:pos.REF>ALT):"
+            new_label <- "Variant coordinates (chr:pos.REF>ALT, e.g.):"
+            example_search <- "chr7:8158596.A>C"
         }else if (selected_type == "rsid") {
             new_label <- "Variant rsid:"
+            example_search <- "rs7798010" 
         }
         
         # Update the label of the textInput
         updateTextInput(
             inputId = "search_id",
+            value = example_search,
             label = new_label
         )
     })
