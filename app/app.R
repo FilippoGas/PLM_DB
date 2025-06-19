@@ -292,7 +292,7 @@ ui <- tagList(
                             full_screen = TRUE,
                             fill = TRUE
                         ),
-                        max_height = "40%"
+                        max_height = "45%"
                     ),
                     ### Models correlation ----
                     card(
