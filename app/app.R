@@ -54,6 +54,15 @@ ui <- tagList(
         ),
         title = "HapScoreDB",
         theme = bs_theme(bootswatch = "journal"),
+        # Prevent the theme from changing title to uppercase
+        tags$head(
+            tags$style(HTML("
+                            .navbar-brand {
+                                text-transform: none !important;
+                            }
+                            ")
+                       )
+        ),
         nav_spacer(),
         ## Search ----
         nav_panel(
