@@ -703,7 +703,7 @@ server <- function(input, output, session){
     output$score_distribution <- renderPlotly({
         if (nrow(df()>0)) {
             plot_df <- df()
-            
+            data_plot <- data
             # Check if filtering options have been applied for the plot
             if (str_detect(input$score_distribution_filter, "ENST")) {
                 plot_df <- plot_df %>% filter(transcript_id == input$score_distribution_filter)
@@ -711,9 +711,24 @@ server <- function(input, output, session){
             if (str_detect(input$score_distribution_filter, "\\.")) {
                 plot_df <- plot_df %>% filter(haplotype_id == input$score_distribution_filter)
             }
-            
+            # Check if advanced filtering was applied to df(), in that case, also apply it 
+            # to the background distribution
+            if (length(input$variant_type_filter)>0) {
+                try(
+                    data_plot <- data_plot %>% filter(!grepl(paste0(input$variant_type_filter, collapse = "|"), data_plot$variant_types))
+                )
+            }
+            try(
+                data_plot <- data_plot %>% filter(tsl <= input$tsl_filter | is.na(tsl))
+            )
+            if (input$tsl_NA) {
+                data_plot <- data_plot %>% filter(!grepl("NA",tx_notes))
+            }
+            if (input$tsl_end_NF) {
+                data_plot <- data_plot %>% filter(!grepl("end_NF",tx_notes))
+            }
             if (str_detect(input$model, "PLLR")) {
-                p <- data %>% filter(!input$model==0) %>% ggplot() +
+                p <- data_plot %>% filter(!input$model==0) %>% ggplot() +
                                                             geom_density(
                                                                 aes(x = !!sym(input$model)),
                                                                 fill = "#e6ab47",
@@ -741,7 +756,7 @@ server <- function(input, output, session){
                                                                                                 )
                                                                           )
             }else{
-                p <- data %>% ggplot() +
+                p <- data_plot %>% ggplot() +
                                 geom_density(
                                     aes(x = !!sym(input$model)),
                                     fill = "#e6ab47",
@@ -766,7 +781,7 @@ server <- function(input, output, session){
             ggplotly(p, tooltip = "text")
         }else{
             if (str_detect(input$model, "PLLR")) {
-                p <- data %>% filter(!input$model==0) %>% ggplot(aes(x = !!sym(input$model))) +
+                p <- data_plot %>% filter(!input$model==0) %>% ggplot(aes(x = !!sym(input$model))) +
                                                             geom_density(fill = "#e6ab47",
                                                                          color = "#e39107",
                                                                          alpha = 0.8,
@@ -779,7 +794,7 @@ server <- function(input, output, session){
                                                                                                 )
                                                                           )
             }else{
-                p <- data %>% ggplot(aes(x = !!sym(input$model))) +
+                p <- data_plot %>% ggplot(aes(x = !!sym(input$model))) +
                                 geom_density(fill = "#e6ab47",
                                              color = "#e39107",
                                              alpha = 0.8,
@@ -794,6 +809,23 @@ server <- function(input, output, session){
     output$score_delta_distribution <- renderPlotly({
         if (nrow(df()>0)) {
             plot_df <- df()
+            data_plot <- data
+            # Check if advanced filtering was applied to df(), in that case, also apply it 
+            # to the background distribution
+            if (length(input$variant_type_filter)>0) {
+                try(
+                    data_plot <- data_plot %>% filter(!grepl(paste0(input$variant_type_filter, collapse = "|"), data_plot$variant_types))
+                )
+            }
+            try(
+                data_plot <- data_plot %>% filter(tsl <= input$tsl_filter | is.na(tsl))
+            )
+            if (input$tsl_NA) {
+                data_plot <- data_plot %>% filter(!grepl("NA",tx_notes))
+            }
+            if (input$tsl_end_NF) {
+                data_plot <- data_plot %>% filter(!grepl("end_NF",tx_notes))
+            }
             # Check if filtering options have been applied for the plot
             if (str_detect(input$delta_distribution_filter, "ENST")) {
                 plot_df <- plot_df %>% filter(transcript_id == input$delta_distribution_filter)
@@ -801,7 +833,7 @@ server <- function(input, output, session){
             if (str_detect(input$delta_distribution_filter, "ENSG")) {
                 plot_df <- plot_df %>% filter(haplotype_id == input$delta_distribution_filter)
             }
-            p <- data %>%
+            p <- data_plot %>%
                 ggplot() +
                 geom_density(aes(x = !!sym(input$delta)),
                              fill = "#e6ab47",
@@ -815,7 +847,7 @@ server <- function(input, output, session){
                 theme(legend.position = "none")
             ggplotly(p, tooltip = "text")
         }else{
-            p <- data %>% ggplot(aes(x = !!sym(input$delta))) +
+            p <- data_plot %>% ggplot(aes(x = !!sym(input$delta))) +
                 geom_density(fill = "#e6ab47", color = "#e39107", alpha = 0.8, adjust = 0.1)
             ggplotly(p)
         }
