@@ -701,9 +701,9 @@ server <- function(input, output, session){
     
     ### Score distribution plots ----
     output$score_distribution <- renderPlotly({
+        data_plot <- data
         if (nrow(df()>0)) {
             plot_df <- df()
-            data_plot <- data
             # Check if filtering options have been applied for the plot
             if (str_detect(input$score_distribution_filter, "ENST")) {
                 plot_df <- plot_df %>% filter(transcript_id == input$score_distribution_filter)
@@ -749,6 +749,7 @@ server <- function(input, output, session){
                                                                                   )
                                                                     ),
                                                                 color = "#e34907") +
+                                                            theme_minimal() +
                                                             theme(legend.position = "none") +
                                                             scale_y_log10(name = "Density (log10 scale)",
                                                                           breaks = trans_breaks("log10", function(x) 10^x),
@@ -776,6 +777,7 @@ server <- function(input, output, session){
                                         )
                                     ),
                                     color = "#e34907") +
+                                theme_minimal() +
                                 theme(legend.position = "none")
             }
             ggplotly(p, tooltip = "text")
@@ -788,6 +790,7 @@ server <- function(input, output, session){
                                                                          adjust = 0.5,
                                                                          stat = "count"
                                                             ) +
+                                                            theme_minimal() +
                                                             scale_y_log10(name = "Density (log10 scale)",
                                                                           breaks = trans_breaks("log10", function(x) 10^x),
                                                                           labels = trans_format("log10", math_format(10^.x)
@@ -799,7 +802,8 @@ server <- function(input, output, session){
                                              color = "#e39107",
                                              alpha = 0.8,
                                              adjust = 0.1
-                                )
+                                ) +
+                                theme_minimal()
             }
             ggplotly(p)
         }
@@ -807,9 +811,10 @@ server <- function(input, output, session){
     
     ### Score deltas distribution plots ----
     output$score_delta_distribution <- renderPlotly({
+        data_plot <- data
         if (nrow(df()>0)) {
             plot_df <- df()
-            data_plot <- data
+            
             # Check if advanced filtering was applied to df(), in that case, also apply it 
             # to the background distribution
             if (length(input$variant_type_filter)>0) {
@@ -840,6 +845,7 @@ server <- function(input, output, session){
                              color = "#e39107",
                              alpha = 0.8,
                              adjust = 0.1) +
+                theme_minimal() +
                 geom_vline(data = plot_df, 
                            aes(xintercept = !!sym(input$delta),
                                text = paste0(haplotype_id, " on transcript ", transcript_id, "\n", input$delta, ": ", round(!!sym(input$delta),4))),
@@ -848,7 +854,8 @@ server <- function(input, output, session){
             ggplotly(p, tooltip = "text")
         }else{
             p <- data_plot %>% ggplot(aes(x = !!sym(input$delta))) +
-                geom_density(fill = "#e6ab47", color = "#e39107", alpha = 0.8, adjust = 0.1)
+                geom_density(fill = "#e6ab47", color = "#e39107", alpha = 0.8, adjust = 0.1) +
+                theme_minimal()
             ggplotly(p)
         }
     })
@@ -888,6 +895,7 @@ server <- function(input, output, session){
                     ggplot(aes(x = ancestry, y = freq, fill = haplotype_id)) +
                         geom_bar(position = "dodge", stat = "identity") +
                         scale_fill_viridis(discrete = TRUE) +
+                        theme_minimal() +
                         theme(legend.position = "none",
                               axis.text.x = element_text(angle = 90, vjust = 0.5, hjust=1))
             ggplotly(p)
@@ -899,9 +907,10 @@ server <- function(input, output, session){
                                  names_to = "ancestry",
                                  values_to = "freq") %>% 
                     ggplot(aes(x = haplotype_id, y = freq, fill = ancestry)) +
-                    geom_bar(position = "dodge", stat = "identity") +
-                    scale_fill_viridis(discrete = TRUE) +
-                    theme(legend.position = "none",
+                        geom_bar(position = "dodge", stat = "identity") +
+                        scale_fill_viridis(discrete = TRUE) +
+                        theme_minimal() +
+                        theme(legend.position = "none",
                           axis.text.x = element_text(angle = 90, vjust = 0.5, hjust=1))
             ggplotly(p)
         }
@@ -935,12 +944,14 @@ server <- function(input, output, session){
                                            binwidth = 2,
                                            fill = "#e6ab47",
                                            color = "#e39107",
-                                           alpha = 0.8)
+                                           alpha = 0.8) +
+                            theme_minimal()
         ggplotly(p)
     })
     ### variants per haplotype distribution ----
     output$variant_haplotype_distribution <- renderPlotly({
         p <- data %>% ggplot(aes(x = n_variants)) +
+            theme_minimal() +
             geom_histogram(stat = "count",
                            binwidth = 2,
                            fill = "#e6ab47",
@@ -958,14 +969,16 @@ server <- function(input, output, session){
                                     low = "gray90",
                                     high = "#e39107", 
                                     name = "Count"
-                                )
+                                ) +
+                                theme_minimal()
         p2 <- data %>% ggplot(aes(x = !!sym(paste0(input$model1, "_PLLR_wt")), y = !!sym(paste0(input$model2, "_PLLR_wt")))) +
                                 geom_hex() + 
                                 scale_fill_gradient(
                                     low = "gray90",
                                     high = "#e39107",
                                     name = "Count"
-                                )
+                                ) +
+                                theme_minimal()
         p1 + p2
     })
     
