@@ -1009,8 +1009,8 @@ server <- function(input, output, session){
         if (length(input$sequence_selector)>0) {
             preview_df <- cbind(preview_df, data %>% select(input$sequence_selector))
         }
-        if (length(input$score_selector)>0) {
-            preview_df <- cbind(preview_df, data %>% select(input$score_selector))
+        if (length(input$scores_selector)>0) {
+            preview_df <- cbind(preview_df, data %>% select(input$scores_selector))
         }
         
         return(preview_df)
