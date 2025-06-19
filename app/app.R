@@ -703,6 +703,7 @@ server <- function(input, output, session){
     output$score_distribution <- renderPlotly({
         if (nrow(df()>0)) {
             plot_df <- df()
+            
             # Check if filtering options have been applied for the plot
             if (str_detect(input$score_distribution_filter, "ENST")) {
                 plot_df <- plot_df %>% filter(transcript_id == input$score_distribution_filter)
@@ -710,6 +711,7 @@ server <- function(input, output, session){
             if (str_detect(input$score_distribution_filter, "\\.")) {
                 plot_df <- plot_df %>% filter(haplotype_id == input$score_distribution_filter)
             }
+            
             if (str_detect(input$model, "PLLR")) {
                 p <- data %>% filter(!input$model==0) %>% ggplot() +
                                                             geom_density(
@@ -954,6 +956,10 @@ server <- function(input, output, session){
         if (length(input$sequence_selector)>0) {
             preview_df <- cbind(preview_df, data %>% select(input$sequence_selector))
         }
+        if (length(input$score_selector)>0) {
+            preview_df <- cbind(preview_df, data %>% select(input$score_selector))
+        }
+        
         return(preview_df)
     })
     
