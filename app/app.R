@@ -34,10 +34,15 @@ app_footer <- tags$footer(
     )
 )
 
+# Value box theme definition ----
+valuebox_theme <- value_box_theme(
+    bg = "#ffffff",
+    fg = "#e39107"
+)
+
 # UI ----
 ui <- tagList(
     page_navbar(
-        
         ## CSS styling ----
         
         # Accordion title bold style
@@ -48,6 +53,7 @@ ui <- tagList(
                        )
         ),
         title = "HapScoreDB",
+        theme = bs_theme(bootswatch = "journal"),
         nav_spacer(),
         ## Search ----
         nav_panel(
@@ -124,19 +130,19 @@ ui <- tagList(
                             title = "Selected haplotypes",
                             showcase = icon("user", "fa-regular"),
                             textOutput(outputId = "selected_haplotypes"), 
-                            theme = "text-blue" 
+                            theme = valuebox_theme
                         ), 
                         value_box( 
                             title = "Affected transcripts",
                             showcase = icon("dna", "fa-regular"), 
                             textOutput(outputId = "affected_transcripts"), 
-                            theme = "text-blue" 
+                            theme = valuebox_theme 
                         ), 
                         value_box( 
                             title = "Involved variants",
                             showcase = icon("disease", "fa-regular"),
                             textOutput(outputId = "involved_variants"), 
-                            theme = "text-blue" 
+                            theme = valuebox_theme
                         ),
                         max_height = "10%"
                     ),
@@ -243,22 +249,22 @@ ui <- tagList(
                         value_box( 
                             title = "Genes",
                             textOutput(outputId = "analyzed_genes"), 
-                            theme = "text-blue" 
+                            theme = valuebox_theme
                         ), 
                         value_box( 
                             title = "Transcripts",
                             textOutput(outputId = "analyzed_transcripts"), 
-                            theme = "text-blue" 
+                            theme = valuebox_theme
                         ), 
-                        value_box( 
+                        value_box(
                             title = "Haplotypes",
                             textOutput(outputId = "analyzed_haplotypes"), 
-                            theme = "text-blue" 
+                            theme = valuebox_theme
                         ),
                         value_box( 
                             title = "Variants",
                             textOutput(outputId = "analyzed_variants"), 
-                            theme = "text-blue" 
+                            theme = valuebox_theme
                         ),
                         max_height = "10%"
                     ),
@@ -568,9 +574,7 @@ ui <- tagList(
 
 # SERVER LOGIC ----
 server <- function(input, output, session){
-    
     ## Search ----
-    
     ### Update ID text input and search bar example ----
     # Observe changes in the radioButtons
     observeEvent(input$search_type, {
@@ -894,7 +898,7 @@ server <- function(input, output, session){
                                  values_to = "freq") %>% 
                     ggplot(aes(x = ancestry, y = freq, fill = haplotype_id)) +
                         geom_bar(position = "dodge", stat = "identity") +
-                        scale_fill_viridis(discrete = TRUE) +
+                        scale_fill_viridis(discrete = TRUE, option = "F") +
                         theme_minimal() +
                         theme(legend.position = "none",
                               axis.text.x = element_text(angle = 90, vjust = 0.5, hjust=1))
@@ -908,7 +912,7 @@ server <- function(input, output, session){
                                  values_to = "freq") %>% 
                     ggplot(aes(x = haplotype_id, y = freq, fill = ancestry)) +
                         geom_bar(position = "dodge", stat = "identity") +
-                        scale_fill_viridis(discrete = TRUE) +
+                        scale_fill_viridis(discrete = TRUE, option = "F") +
                         theme_minimal() +
                         theme(legend.position = "none",
                           axis.text.x = element_text(angle = 90, vjust = 0.5, hjust=1))
@@ -970,6 +974,8 @@ server <- function(input, output, session){
                                     high = "#e39107", 
                                     name = "Count"
                                 ) +
+                                stat_cor(method = "pearson",
+                                         size = 5) +
                                 theme_minimal()
         p2 <- data %>% ggplot(aes(x = !!sym(paste0(input$model1, "_PLLR_wt")), y = !!sym(paste0(input$model2, "_PLLR_wt")))) +
                                 geom_hex() + 
@@ -978,6 +984,8 @@ server <- function(input, output, session){
                                     high = "#e39107",
                                     name = "Count"
                                 ) +
+                                stat_cor(method = "pearson",
+                                         size = 5) +
                                 theme_minimal()
         p1 + p2
     })
