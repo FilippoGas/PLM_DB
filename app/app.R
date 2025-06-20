@@ -42,6 +42,9 @@ valuebox_theme <- value_box_theme(
 
 # UI ----
 ui <- tagList(
+  
+    withMathJax(), # enable mathjax
+  
     page_navbar(
         ## CSS styling ----
         
@@ -246,6 +249,33 @@ ui <- tagList(
                             withSpinner(plotlyOutput("population"), type = 4, color = "#e39107")
                         ),
                         full_screen = TRUE
+                    ),
+                    ### Models correlation selected scores ----
+                    card(
+                        card_header("Model scores correlation"),
+                        layout_sidebar(
+                            sidebar = sidebar(
+                                selectizeInput(
+                                    inputId = "model1",
+                                    label = "Select the desired model:",
+                                    choices = list("none" = "none",
+                                                   "ESM2" = "esm",
+                                                   "PoET" = "poet",
+                                                   "proSST" = "prosst")
+                                ),
+                                selectizeInput(
+                                    inputId = "model2",
+                                    label = "Select the desired model:",
+                                    choices = list("none" = "none",
+                                                   "ESM2" = "esm",
+                                                   "PoET" = "poet",
+                                                   "proSST" = "prosst")
+                                )
+                            ),
+                            withSpinner(plotOutput(outputId = "models_correlation_selected_score"), type = 4, color = "#e39107")
+                        ),
+                        full_screen = TRUE,
+                        fill = TRUE 
                     )
                 )
             ),
@@ -294,7 +324,7 @@ ui <- tagList(
                         ),
                         max_height = "45%"
                     ),
-                    ### Models correlation ----
+                    ### Models correlation all scores ----
                     card(
                         card_header("Model scores correlation"),
                         layout_sidebar(
@@ -316,7 +346,7 @@ ui <- tagList(
                                                    "proSST" = "prosst")
                                 )
                             ),
-                            withSpinner(plotOutput(outputId = "models_correlation"), type = 4, color = "#e39107")
+                            withSpinner(plotOutput(outputId = "models_correlation_all_score"), type = 4, color = "#e39107")
                         ),
                         full_screen = TRUE,
                         fill = TRUE 
@@ -495,20 +525,10 @@ ui <- tagList(
                             ),
                             accordion_panel(
                               title = "How are the scores calculated?",
-                              "For ESM2 and ProSST, we compute the predicted pseudo-log-likelihoods of every protein sequence passed once to the models,
-                              without masking any amino acid, following Brandes et al 2023 (doi.org/10.1038/s41588-023-01465-0):
-                              
-                                
-                              We find this approach for masked language models to correlate well with experimental data
-                              from the ProteinGym benchmark in the zero-shot setting. Albeit at a slighly lower performance
-                              for single variant effect prediction compared to the commonly used wild-type marginals method,
-                              this type of score can capture the effect of indels and of epistatic interactions, when multiple variants are present in the same sequence.
-                              
-                              In the case of ProSST, the input structures are taken from the AlphaFoldDB (Varadi et al 2024, doi.org/10.1093/nar/gkad1011),
-                              and encoded using the 4096 long version of the structure sequence alphabet.
-                              For PoET, an autoregressive generative model, we use the same scoring function as in the original paper,
-                              averaging over multiple context lengths as in their work, 
-                              and using as inputs MSAs generated from the Uniref100 database employing the ColabFold protocol."
+                              tags$p("For ESM2 and ProSST, we compute the predicted pseudo-log-likelihoods of every protein sequence passed once to the models, without masking any amino acid, following Brandes et al 2023 (doi.org/10.1038/s41588-023-01465-0):"),
+                              HTML("$$ P_{PLL}(S) = \\frac{1}{L} \\sum_{i=1}^{L} \\log(P(r_i = r_i^S | S_{mt})) $$"),
+                              tags$p("We find this approach for masked language models to correlate well with experimental data from the ProteinGym benchmark in the zero-shot setting. Albeit at a slighly lower performance for single variant effect prediction compared to the commonly used wild-type marginals method, this type of score can capture the effect of indels and of epistatic interactions, when multiple variants are present in the same sequence."),
+                              tags$p("In the case of ProSST, the input structures are taken from the AlphaFoldDB (Varadi et al 2024, doi.org/10.1093/nar/gkad1011), and encoded using the 4096 long version of the structure sequence alphabet. For PoET, an autoregressive generative model, we use the same scoring function as in the original paper, averaging over multiple context lengths as in their work, and using as inputs MSAs generated from the Uniref100 database employing the ColabFold protocol.")                              
                             ),
                             accordion_panel(
                                 title = "What do PLLR_wt and PLLR_mf mean?",
@@ -929,6 +949,33 @@ server <- function(input, output, session){
         }
     })
     
+    ### Model correlation selected scores----
+    output$models_correlation_selected_score <- renderPlot({
+        validate(need(try(nrow(df())>0),"Waiting for a subset of haplotypes to be selected."))
+        validate(need(!input$model1=="none" && !input$model2=="none", "Waiting for two models to be selected."))
+        p1 <- df() %>% ggplot(aes(x = !!sym(paste0(input$model1, "_PLL")), y = !!sym(paste0(input$model2, "_PLL")))) +
+            geom_hex() + 
+            scale_fill_gradient(
+                low = "gray90",
+                high = "#e39107", 
+                name = "Count"
+            ) +
+            stat_cor(method = "pearson",
+                     size = 5) +
+            theme_minimal()
+        p2 <- df() %>% ggplot(aes(x = !!sym(paste0(input$model1, "_PLLR_wt")), y = !!sym(paste0(input$model2, "_PLLR_wt")))) +
+            geom_hex() + 
+            scale_fill_gradient(
+                low = "gray90",
+                high = "#e39107",
+                name = "Count"
+            ) +
+            stat_cor(method = "pearson",
+                     size = 5) +
+            theme_minimal()
+        p1 + p2
+    })
+    
     ## About ----
     
     ### Update value boxes ----
@@ -973,8 +1020,8 @@ server <- function(input, output, session){
         ggplotly(p)
     })
     
-    ### Model correlation ----
-    output$models_correlation <- renderPlot({
+    ### Model correlation all scores----
+    output$models_correlation_all_score <- renderPlot({
         validate(need(!input$model1=="none" && !input$model2=="none", "Waiting for two models to be selected."))
         p1 <- data %>% ggplot(aes(x = !!sym(paste0(input$model1, "_PLL")), y = !!sym(paste0(input$model2, "_PLL")))) +
                                 geom_hex() + 
