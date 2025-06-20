@@ -261,19 +261,17 @@ ui <- tagList(
                         layout_sidebar(
                             sidebar = sidebar(
                                 selectizeInput(
-                                    inputId = "model1",
+                                    inputId = "model1_selected",
                                     label = "Select the desired model:",
-                                    choices = list("none" = "none",
-                                                   "ESM2" = "esm",
+                                    choices = list("ESM2" = "esm",
                                                    "PoET" = "poet",
                                                    "proSST" = "prosst")
                                 ),
                                 selectizeInput(
-                                    inputId = "model2",
+                                    inputId = "model2_selected",
                                     label = "Select the desired model:",
-                                    choices = list("none" = "none",
+                                    choices = list("PoET" = "poet",
                                                    "ESM2" = "esm",
-                                                   "PoET" = "poet",
                                                    "proSST" = "prosst")
                                 )
                             ),
@@ -335,19 +333,17 @@ ui <- tagList(
                         layout_sidebar(
                             sidebar = sidebar(
                                 selectizeInput(
-                                    inputId = "model1",
+                                    inputId = "model1_all",
                                     label = "Select the desired model:",
-                                    choices = list("none" = "none",
-                                                   "ESM2" = "esm",
+                                    choices = list("ESM2" = "esm",
                                                    "PoET" = "poet",
                                                    "proSST" = "prosst")
                                 ),
                                 selectizeInput(
-                                    inputId = "model2",
+                                    inputId = "model2_all",
                                     label = "Select the desired model:",
-                                    choices = list("none" = "none",
+                                    choices = list("PoET" = "poet",
                                                    "ESM2" = "esm",
-                                                   "PoET" = "poet",
                                                    "proSST" = "prosst")
                                 )
                             ),
@@ -957,18 +953,16 @@ server <- function(input, output, session){
     ### Model correlation selected scores----
     output$models_correlation_selected_score <- renderPlot({
         validate(need(try(nrow(df())>0),"Waiting for a subset of haplotypes to be selected."))
-        validate(need(!input$model1=="none" && !input$model2=="none", "Waiting for two models to be selected."))
-        p1 <- df() %>% ggplot(aes(x = !!sym(paste0(input$model1, "_PLL")), y = !!sym(paste0(input$model2, "_PLL")))) +
+        validate(need(!input$model1_selected=="none" && !input$model2_selected=="none", "Waiting for two models to be selected."))
+        p1 <- df() %>% ggplot(aes(x = !!sym(paste0(input$model1_selected, "_PLL")), y = !!sym(paste0(input$model2_selected, "_PLL")))) +
             geom_hex() + 
             scale_fill_gradient(
                 low = "gray90",
                 high = "#e39107", 
                 name = "Count"
             ) +
-            stat_cor(method = "pearson",
-                     size = 5) +
             theme_minimal()
-        p2 <- df() %>% ggplot(aes(x = !!sym(paste0(input$model1, "_PLLR_wt")), y = !!sym(paste0(input$model2, "_PLLR_wt")))) +
+        p2 <- df() %>% ggplot(aes(x = !!sym(paste0(input$model1_selected, "_PLLR_wt")), y = !!sym(paste0(input$model2_selected, "_PLLR_wt")))) +
             geom_hex() + 
             scale_fill_gradient(
                 low = "gray90",
@@ -1027,18 +1021,16 @@ server <- function(input, output, session){
     
     ### Model correlation all scores----
     output$models_correlation_all_score <- renderPlot({
-        validate(need(!input$model1=="none" && !input$model2=="none", "Waiting for two models to be selected."))
-        p1 <- data %>% ggplot(aes(x = !!sym(paste0(input$model1, "_PLL")), y = !!sym(paste0(input$model2, "_PLL")))) +
+        validate(need(!input$model1_all=="none" && !input$model2_all=="none", "Waiting for two models to be selected."))
+        p1 <- data %>% ggplot(aes(x = !!sym(paste0(input$model1_all, "_PLL")), y = !!sym(paste0(input$model2_all, "_PLL")))) +
                                 geom_hex() + 
                                 scale_fill_gradient(
                                     low = "gray90",
                                     high = "#e39107", 
                                     name = "Count"
                                 ) +
-                                stat_cor(method = "pearson",
-                                         size = 5) +
                                 theme_minimal()
-        p2 <- data %>% ggplot(aes(x = !!sym(paste0(input$model1, "_PLLR_wt")), y = !!sym(paste0(input$model2, "_PLLR_wt")))) +
+        p2 <- data %>% ggplot(aes(x = !!sym(paste0(input$model1_all, "_PLLR_wt")), y = !!sym(paste0(input$model2_all, "_PLLR_wt")))) +
                                 geom_hex() + 
                                 scale_fill_gradient(
                                     low = "gray90",
