@@ -12,13 +12,18 @@ library(scales)
 library(patchwork)
 library(shinycssloaders)
 
+# DATA PATHS
+interface_data_path <- "../data/interface_data.tsv"
+rsid_map_path <- "../data/rsid_map.tsv"
+coords_map_path <- "../data/coords_map.tsv"
+sequences_path <- "../data/all_sequences.tsv"
 # LOAD DATA ----
-data <- read_tsv("../data/interface_data.tsv")
+data <- read_tsv(interface_data_path)
 
-rsid_map <- read_tsv("../data/rsid_map.tsv")
+rsid_map <- read_tsv(rsid_map_path)
 rsid_map <- rsid_map %>% column_to_rownames("rsid") %>% mutate(haplo_ids = strsplit(haplo_ids, ","))
 
-coords_map <- read_tsv("../data/coords_map.tsv")
+coords_map <- read_tsv(coords_map_path)
 coords_map <- coords_map %>% column_to_rownames("variant_coord") %>% mutate(haplo_ids = strsplit(haplo_ids, ","))
 
 # Footer definition ----
@@ -1063,7 +1068,8 @@ server <- function(input, output, session){
             preview_df <- cbind(preview_df, data %>% select(input$transcript_info_selector))
         }
         if (length(input$sequence_selector)>0) {
-            preview_df <- cbind(preview_df, data %>% select(input$sequence_selector))
+            sequences_df <- read_tsv(sequences_path)
+            preview_df <- preview_df %>% left_join(sequences_df)
         }
         if (length(input$scores_selector)>0) {
             preview_df <- cbind(preview_df, data %>% select(input$scores_selector))
