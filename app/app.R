@@ -480,7 +480,7 @@ ui <- tagList(
             ## FAQ ----
             nav_panel(
                 title = "FAQ",
-                h1("Any question?", style = "text-align:center"),
+                h1("Any questions?", style = "text-align:center"),
                 fluidRow(
                     column(
                         width = 8,
@@ -528,7 +528,7 @@ ui <- tagList(
                               title = "How are the scores calculated?",
                               tags$p("For ESM2 and ProSST, we compute the predicted pseudo-log-likelihoods of every protein sequence passed once to the models, without masking any amino acid, following Brandes et al 2023 (doi.org/10.1038/s41588-023-01465-0):"),
                               HTML("$$ P_{PLL}(S) = \\frac{1}{L} \\sum_{i=1}^{L} \\log(P(r_i = r_i^S | S_{mt})) $$"),
-                              tags$p("We find this approach for masked language models to correlate well with experimental data from the ProteinGym benchmark in the zero-shot setting. Albeit at a slighly lower performance for single variant effect prediction compared to the commonly used wild-type marginals method, this type of score can capture the effect of indels and of epistatic interactions, when multiple variants are present in the same sequence."),
+                              tags$p("Where $S$ is the input protein sequence, $L$ its length and $r_i^S$ the aminoacid at position $i$ in $S$. We find this approach for masked language models to correlate well with experimental data from the ProteinGym benchmark in the zero-shot setting. Albeit at a slighly lower performance for single variant effect prediction compared to the commonly used wild-type marginals method, this type of score can capture the effect of indels and of epistatic interactions, when multiple variants are present in the same sequence."),
                               tags$p("In the case of ProSST, the input structures are taken from the AlphaFoldDB (Varadi et al 2024, doi.org/10.1093/nar/gkad1011), and encoded using the 4096 long version of the structure sequence alphabet. For PoET, an autoregressive generative model, we use the same scoring function as in the original paper, averaging over multiple context lengths as in their work, and using as inputs MSAs generated from the Uniref100 database employing the ColabFold protocol.")                              
                             ),
                             accordion_panel(
@@ -613,19 +613,19 @@ server <- function(input, output, session){
         
         if (selected_type == "ensg") {
             new_label <- "Ensembl Gene ID (e.g.):"
-            example_search <- "ENSG00000003147"
+            example_search <- "ENSG00000164002"
         } else if (selected_type == "hgnc") {
             new_label <- "HGNC gene symbol (e.g.):"
-            example_search <- "ICA1"
+            example_search <- "EXO5"
         }else if (selected_type == "transcript") {
             new_label <- "Ensembl Transcript ID (e.g.):"
-            example_search <- "ENST00000265577"
+            example_search <- "ENST00000682383"
         } else if (selected_type == "coordinates") {
             new_label <- "Variant coordinates (chr:pos.REF>ALT, e.g.):"
-            example_search <- "chr7:8158596.A>C"
+            example_search <- "chr1:40515059.G>T"
         }else if (selected_type == "rsid") {
             new_label <- "Variant rsid:"
-            example_search <- "rs7798010" 
+            example_search <- "rs11208299" 
         }
         
         # Update the label of the textInput
