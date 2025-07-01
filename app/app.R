@@ -375,8 +375,7 @@ ui <- tagList(
                                         "Haplotype ID" = "haplotype_id",
                                         "Gene Symbol" = "gene_symbol",
                                         "Uniprot ID" = "uniprot_id",
-                                        "Protein ID" = "protein_id",
-                                        "Variant rsid" = "rsids"
+                                        "Variant rsid" = "rsid"
                                     ),
                                     selected = c("gene_id", "transcript_id", "haplotype_id")
                                 )
@@ -419,12 +418,7 @@ ui <- tagList(
                                     inputId = "transcript_info_selector",
                                     label = "",
                                     choices = list(
-                                        "Truncation flag" = "is_truncated",
-                                        "Premature stop flag" = "has_premature_stop",
-                                        "Premature stop position" = "premature_stop_pos",
-                                        "Frameshift start" = "frameshift_start",
-                                        "Original position" = "original_pos",
-                                        "Transcript length" = "transcript_length",
+                                        "Protein length" = "protein_length",
                                         "Number of variants" = "n_variants",
                                         "TSL - Ensembl Transcript Support Level" = "tsl"
                                     ),
