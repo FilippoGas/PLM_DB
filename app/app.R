@@ -1054,7 +1054,7 @@ server <- function(input, output, session){
             preview_df <- cbind(preview_df, data %>% select(input$transcript_info_selector))
         }
         if (length(input$sequence_selector)>0) {
-            sequences_df <- read_tsv(sequences_path)
+            sequences_df <- read_tsv(sequences_path) %>% select(gene_id, transcript_id, haplotype_id, input$sequence_selector)
             preview_df <- preview_df %>% left_join(sequences_df)
         }
         if (length(input$scores_selector)>0) {
