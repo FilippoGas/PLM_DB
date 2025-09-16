@@ -19,10 +19,8 @@ coords_map_path <- "../data/coords_map.tsv"
 sequences_path <- "../data/all_sequences.tsv"
 # LOAD DATA ----
 data <- read_tsv(interface_data_path)
-
 rsid_map <- read_tsv(rsid_map_path)
 rsid_map <- rsid_map %>% column_to_rownames("rsid") %>% mutate(haplo_ids = strsplit(haplo_ids, ","))
-
 coords_map <- read_tsv(coords_map_path)
 coords_map <- coords_map %>% column_to_rownames("variant_coord") %>% mutate(haplo_ids = strsplit(haplo_ids, ","))
 
@@ -1076,6 +1074,7 @@ server <- function(input, output, session){
             write_tsv(preview_df(), file)
         }
     )
+    
 }
 
 # RUN APP ----
