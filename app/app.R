@@ -18,6 +18,7 @@ rsid_map_path <- "/data/rsid_map.tsv"
 coords_map_path <- "/data/coords_map.tsv"
 sequences_path <- "/data/all_sequences.tsv"
 version_df_path <- "/data/version.csv"
+api_df_path <- "/data/api.csv"
 
 # LOAD DATA ----
 data <- read_tsv(interface_data_path)
@@ -26,7 +27,7 @@ rsid_map <- rsid_map %>% column_to_rownames("rsid") %>% mutate(haplo_ids = strsp
 coords_map <- read_tsv(coords_map_path)
 coords_map <- coords_map %>% column_to_rownames("variant_coord") %>% mutate(haplo_ids = strsplit(haplo_ids, ","))
 version <- read_csv(version_df_path)
-
+api <- read_csv(api_df_path)
 # Footer definition ----
 app_footer <- tags$footer(
         class = "text-center text-white",
@@ -585,7 +586,7 @@ ui <- tagList(
                                 )
                         )
                 ),
-                ## ACCESS ----
+                ## Access ----
                 nav_panel(
                         title = "Access",
                         fluidRow(
@@ -609,6 +610,20 @@ ui <- tagList(
                                                                 alt = "Creative Commons BY 4.0",
                                                                 style = "margin-top:10px;"
                                                         )
+                                                ),
+                                                accordion_panel(
+                                                        title = "API",
+                                                        "HapScoreDB data are also available through rest API at the endpoint:",
+                                                        tags$br(),
+                                                        tags$br(),
+                                                        h3("https://bcglab.cibio.unitn.it/hapscoredbAPI/data"),
+                                                        tags$br(),
+                                                        "with the following parameters:",
+                                                        tags$br(),
+                                                        tags$br(),
+                                                        tableOutput("api"),
+                                                        tags$br(),
+                                                        "Example: ", tags$code("curl \"https://bcglab.cibio.unitn.it/hapscoredbAPI/data?genes=ENSG00000164002,ENSG00000065978\"")
                                                 ),
                                                 open = FALSE
                                         )
@@ -1071,7 +1086,7 @@ server <- function(input, output, session){
         ## Access ----
         
         output$version <- renderTable(version)
-        
+        output$api <- renderTable(api)
         ## Download ----
         
         ### Subset download datatable ----
