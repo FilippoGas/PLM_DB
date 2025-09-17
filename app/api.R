@@ -2,7 +2,7 @@ library(plumber)
 library(dplyr)
 library(readr)
 
-data <- read_tsv("../data/interface_data.tsv")
+data <- read_tsv("/data/interface_data.tsv")
 
 #* @apiTitle HapscoreDB API
 #* @apiDescription API interface for the data presented in HapScoreDB
@@ -10,9 +10,9 @@ data <- read_tsv("../data/interface_data.tsv")
 #* @param genes:[character] Ensembl gene ID of genes of interest
 #* @param snps:[character] rsid of variants of interest 
 #* @param format:[character] Either 'csv' or 'json'
-#* @get /api/data
+#* @get /data
 
-function(res, genes = NULL, snps = NULL, format = "json"){
+function(res, genes = "", snps = "", format = "json"){
         
         df <- data
         
