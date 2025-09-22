@@ -10,6 +10,7 @@ Built using GENCODE and Ensembl annotations combined with phased variant data fr
 Fitness scores for each haplotype were computed with state-of-the-art protein language models.
 
 HapScoreDB includes an intuitive web interface for interactive exploration, visualization, and download of complete or customized datasets.
+
 This repository contains the source code for the RShiny application powering the web interface.
 
 Explore HapScoreDB here: https://bcglab.cibio.unitn.it/hapscoredb/
