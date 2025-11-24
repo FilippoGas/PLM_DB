@@ -19,6 +19,8 @@ coords_map_path <- "/data/coords_map.tsv"
 sequences_path <- "/data/all_sequences.tsv"
 version_df_path <- "/data/version.csv"
 api_df_path <- "/data/api.csv"
+column_description_path <- "/data/columns_description.tsv"
+link_map_path<- "/data/link_map.rds"
 
 # LOAD DATA ----
 data <- read_tsv(interface_data_path)
@@ -28,6 +30,11 @@ coords_map <- read_tsv(coords_map_path)
 coords_map <- coords_map %>% column_to_rownames("variant_coord") %>% mutate(haplo_ids = strsplit(haplo_ids, ","))
 version <- read_csv(version_df_path)
 api <- read_csv(api_df_path)
+columns_description <- read_tsv(column_description_path, col_names = FALSE)
+colnames(columns_description) <- c("Column", "Description")
+link_map <- readRDS(link_map_path)
+link_map <- link_map %>% column_to_rownames('rsid')
+
 # Footer definition ----
 app_footer <- tags$footer(
         class = "text-center text-white",
@@ -62,7 +69,7 @@ ui <- tagList(
                             }")
                         )
                 ),
-                title = "HapScoreDB",
+                title = tagList("HapScoreDB", tags$sub("v1.0")),
                 theme = bs_theme(bootswatch = "journal"),
                 # Prevent the theme from changing title to uppercase
                 tags$head(
@@ -169,7 +176,7 @@ ui <- tagList(
                                 #### datatable ----
                                 card(
                                         card_header("Haplotypes table"),
-                                        dataTableOutput("datatable"),
+                                        DTOutput("datatable"),
                                         full_screen = TRUE
                                 ),
                                 
@@ -182,15 +189,17 @@ ui <- tagList(
                                                                 selectizeInput(
                                                                         inputId = "model",
                                                                         label = "Select the desired model:",
-                                                                        choices = list("ESM2"=list("PLL" = "esm_PLL",
-                                                                                                   "PLLR_mf" = "esm_PLLR_mf",
-                                                                                                   "PLLR_wt" = "esm_PLLR_wt"),
-                                                                                       "PoET"=list("PLL" = "poet_PLL",
-                                                                                                   "PLLR_mf" = "poet_PLLR_mf",
-                                                                                                   "PLLR_wt" = "poet_PLLR_wt"),
-                                                                                       "proSST"=list("PLL" = "prosst_PLL",
-                                                                                                     "PLLR_mf" = "prosst_PLLR_mf",
-                                                                                                     "PLLR_wt" = "prosst_PLLR_wt")
+                                                                        choices = list("ESM2"="esm",
+                                                                                       "PoET"="poet",
+                                                                                       "proSST"="prosst"
+                                                                        )
+                                                                ),
+                                                                selectizeInput(
+                                                                        inputId = "score_type",
+                                                                        label = "Select the desired score type:",
+                                                                        choices = list("PLL" = "_PLL",
+                                                                                       "PLLR_wt"="_PLLR_wt",
+                                                                                       "PLLR_mf"="_PLLR_mf"
                                                                         )
                                                                 ),
                                                                 selectizeInput(
@@ -455,7 +464,10 @@ ui <- tagList(
                                                                         "proSST PLL" = "prosst_PLL",
                                                                         "proSST PLLR_mf" = "prosst_PLLR_mf",
                                                                         "proSST PLLR_wt" = "prosst_PLLR_wt",
-                                                                        "proSST delta PLL" = "prosst_PLL_delta"
+                                                                        "proSST delta PLL" = "prosst_PLL_delta",
+                                                                        "AlphaMissense scores" = "am_scores",
+                                                                        "AlphaMissense average score" = "am_avg_score",
+                                                                        "AlphaMissense sum score" = "am_sum_score"
                                                                 ),
                                                                 selected = "esm_PLL"
                                                         )
@@ -580,6 +592,10 @@ ui <- tagList(
                                                         title = "Which variants were taken into consideration?",
                                                         "To generate the database of mutated sequences all (SNPs and INDELs)
                                 phased common (MAF > 0.5%) coding variants identified in 1000 Genomes were taken into consideration."
+                                                ),
+                                                accordion_panel(
+                                                        title = "Columns description",
+                                                        tableOutput("columns_description")
                                                 ),
                                                 open = FALSE
                                         )
@@ -723,19 +739,42 @@ server <- function(input, output, session){
                         )
                 }
                 
+                # Create variants SNPs to clinvar
+                df$rsid <- lapply(df$rsid, function(x){
+                        links <- c()
+                        for (link in strsplit(x, ",")[[1]]) {
+                                if (link=="wt") {
+                                        links <- c(links, "wt")
+                                }else{
+                                        links <- c(links, link_map[link,1][[1]])
+                                }
+                        }
+                        return(paste(links, collapse = ""))
+                })
+                
+                # Create links to uniprot
+                df$uniprot_id <- lapply(df$uniprot_id, function(x){
+                        if (is.na(x)) {
+                                return(x)
+                        }else{
+                                return(sprintf('<a href="https://www.uniprot.org/uniprotkb/%s" target="_blank">%s</a>', x, x))
+                        }
+                })
+                
                 return(df)
+                
         })
         
         ### Update value boxes ----
         output$selected_haplotypes <- renderText({
-                nrow(df() %>% select(haplotype_id) %>% unique())
+                nrow(df() %>% dplyr::select(haplotype_id) %>% unique())
         })
         output$affected_transcripts <- renderText({
-                nrow(df() %>% select(transcript_id) %>% unique())
+                nrow(df() %>% dplyr::select(transcript_id) %>% unique())
         })
         
         output$involved_variants <- renderText({
-                subset <- df() %>% select(variant_coordinates_hg38) %>% filter(!variant_coordinates_hg38 == "wt")
+                subset <- df() %>% dplyr::select(variant_coordinates_hg38) %>% filter(!variant_coordinates_hg38 == "wt")
                 variants <- c()
                 for(row in subset$variant_coordinates_hg38){
                         variants <- c(variants, str_split_1(row, pattern = ","))
@@ -744,8 +783,9 @@ server <- function(input, output, session){
         })
         
         ### Search datatable ---- 
-        output$datatable <- renderDataTable({
-                df()
+        output$datatable <- DT::renderDT({
+                df <- df()
+                DT::datatable(df, escape=FALSE, options = list(pageLength = 5))
         })
         
         ### Update distribution filters, both for scores and deltas----
@@ -801,10 +841,10 @@ server <- function(input, output, session){
                         if (input$tsl_end_NF) {
                                 data_plot <- data_plot %>% filter(!grepl("end_NF",tx_notes))
                         }
-                        if (str_detect(input$model, "PLLR")) {
-                                p <- data_plot %>% filter(!input$model==0) %>% ggplot() +
+                        if (str_detect(paste0(input$model, input$score_type), "PLLR")) {
+                                p <- data_plot %>% filter(!paste0(input$model, input$score_type)==0) %>% ggplot() +
                                         geom_density(
-                                                aes(x = !!sym(input$model)),
+                                                aes(x = !!sym(paste0(input$model, input$score_type))),
                                                 fill = "#e6ab47",
                                                 color = "#e39107",
                                                 alpha = 0.8,
@@ -812,14 +852,14 @@ server <- function(input, output, session){
                                                 stat = "count") +
                                         geom_vline(
                                                 data = plot_df, 
-                                                aes(xintercept = !!sym(input$model),
+                                                aes(xintercept = !!sym(paste0(input$model, input$score_type)),
                                                     text = paste0(haplotype_id,
                                                                   " on transcript ",
                                                                   transcript_id,
                                                                   "\n",
                                                                   input$model,
                                                                   ": ",
-                                                                  round(!!sym(input$model),4)
+                                                                  round(!!sym(paste0(input$model, input$score_type)),4)
                                                     )
                                                 ),
                                                 color = "#e34907") +
@@ -833,21 +873,21 @@ server <- function(input, output, session){
                         }else{
                                 p <- data_plot %>% ggplot() +
                                         geom_density(
-                                                aes(x = !!sym(input$model)),
+                                                aes(x = !!sym(paste0(input$model, input$score_type))),
                                                 fill = "#e6ab47",
                                                 color = "#e39107",
                                                 alpha = 0.8,
                                                 adjust = 0.1) +
                                         geom_vline(
                                                 data = plot_df, 
-                                                aes(xintercept = !!sym(input$model),
+                                                aes(xintercept = !!sym(paste0(input$model, input$score_type)),
                                                     text = paste0(haplotype_id,
                                                                   " on transcript ",
                                                                   transcript_id,
                                                                   "\n",
                                                                   input$model,
                                                                   ": ",
-                                                                  round(!!sym(input$model),4)
+                                                                  round(!!sym(paste0(input$model, input$score_type)),4)
                                                     )
                                                 ),
                                                 color = "#e34907") +
@@ -856,8 +896,8 @@ server <- function(input, output, session){
                         }
                         ggplotly(p, tooltip = "text")
                 }else{
-                        if (str_detect(input$model, "PLLR")) {
-                                p <- data_plot %>% filter(!input$model==0) %>% ggplot(aes(x = !!sym(input$model))) +
+                        if (str_detect(paste0(input$model, input$score_type), "PLLR")) {
+                                p <- data_plot %>% filter(!paste0(input$model, input$score_type)==0) %>% ggplot(aes(x = !!sym(paste0(input$model, input$score_type)))) +
                                         geom_density(fill = "#e6ab47",
                                                      color = "#e39107",
                                                      alpha = 0.8,
@@ -871,7 +911,7 @@ server <- function(input, output, session){
                                                       )
                                         )
                         }else{
-                                p <- data_plot %>% ggplot(aes(x = !!sym(input$model))) +
+                                p <- data_plot %>% ggplot(aes(x = !!sym(paste0(input$model, input$score_type)))) +
                                         geom_density(fill = "#e6ab47",
                                                      color = "#e39107",
                                                      alpha = 0.8,
@@ -961,7 +1001,7 @@ server <- function(input, output, session){
                 if (input$group_by == "ancestry") {
                         # Group by ancestry
                         p <- plot_df %>%
-                                select(frequency, haplotype_id, AFR_freq, AMR_freq, EAS_freq, EUR_freq, SAS_freq) %>%
+                                dplyr::select(frequency, haplotype_id, AFR_freq, AMR_freq, EAS_freq, EUR_freq, SAS_freq) %>%
                                 dplyr::rename("Global" = "frequency") %>%
                                 pivot_longer(cols = c("Global", "AFR_freq", "AMR_freq", "EAS_freq", "EUR_freq", "SAS_freq"),
                                              names_to = "ancestry",
@@ -976,7 +1016,7 @@ server <- function(input, output, session){
                 }else{
                         # Group by haplotype
                         p <- plot_df %>%
-                                select(haplotype_id, AFR_freq, AMR_freq, EAS_freq, EUR_freq, SAS_freq) %>%
+                                dplyr::select(haplotype_id, AFR_freq, AMR_freq, EAS_freq, EUR_freq, SAS_freq) %>%
                                 pivot_longer(cols = c("AFR_freq", "AMR_freq", "EAS_freq", "EUR_freq", "SAS_freq"),
                                              names_to = "ancestry",
                                              values_to = "freq") %>% 
@@ -1019,13 +1059,13 @@ server <- function(input, output, session){
         
         ### Update value boxes ----
         output$analyzed_genes <- renderText({
-                nrow(data %>% select(gene_id) %>% unique())
+                nrow(data %>% dplyr::select(gene_id) %>% unique())
         })
         output$analyzed_haplotypes <- renderText({
-                nrow(data %>% select(haplotype_id) %>% unique())
+                nrow(data %>% dplyr::select(haplotype_id) %>% unique())
         })
         output$analyzed_transcripts <- renderText({
-                nrow(data %>% select(transcript_id) %>% unique())
+                nrow(data %>% dplyr::select(transcript_id) %>% unique())
         })
         # Read from stats file
         output$analyzed_variants <- renderText({
@@ -1035,7 +1075,7 @@ server <- function(input, output, session){
         ### haplotypes per gene distribution ----
         output$haplotype_gene_distribution <- renderPlotly({
                 plot_df <- data %>%
-                        select(haplotype_id, gene_id) %>%
+                        dplyr::select(haplotype_id, gene_id) %>%
                         unique() %>%
                         summarise(haplotype_count = n(), .by = gene_id)
                 p <- plot_df %>% ggplot(aes(x = haplotype_count)) +
@@ -1083,6 +1123,10 @@ server <- function(input, output, session){
                 p1 + p2
         })
         
+        ## FAQ ----
+        
+        output$columns_description <- renderTable(columns_description)
+        
         ## Access ----
         
         output$version <- renderTable(version)
@@ -1092,23 +1136,23 @@ server <- function(input, output, session){
         ### Subset download datatable ----
         preview_df <- reactive({
                 if (length(input$IDs_selector)>0) {
-                        preview_df <- data %>% select(input$IDs_selector)
+                        preview_df <- data %>% dplyr::select(input$IDs_selector)
                 }
                 if (length(input$variant_info_selector)>0) {
-                        preview_df <- cbind(preview_df, data %>% select(input$variant_info_selector))
+                        preview_df <- cbind(preview_df, data %>% dplyr::select(input$variant_info_selector))
                 }
                 if (length(input$frequency_selector)>0) {
-                        preview_df <- cbind(preview_df, data %>% select(input$frequency_selector))
+                        preview_df <- cbind(preview_df, data %>% dplyr::select(input$frequency_selector))
                 }
                 if (length(input$transcript_info_selector)>0) {
-                        preview_df <- cbind(preview_df, data %>% select(input$transcript_info_selector))
+                        preview_df <- cbind(preview_df, data %>% dplyr::select(input$transcript_info_selector))
                 }
                 if (length(input$sequence_selector)>0) {
-                        sequences_df <- read_tsv(sequences_path) %>% select(gene_id, transcript_id, haplotype_id, input$sequence_selector)
+                        sequences_df <- read_tsv(sequences_path) %>% dplyr::select(gene_id, transcript_id, haplotype_id, input$sequence_selector)
                         preview_df <- preview_df %>% left_join(sequences_df)
                 }
                 if (length(input$scores_selector)>0) {
-                        preview_df <- cbind(preview_df, data %>% select(input$scores_selector))
+                        preview_df <- cbind(preview_df, data %>% dplyr::select(input$scores_selector))
                 }
                 
                 return(preview_df)
