@@ -641,6 +641,17 @@ ui <- tagList(
                                                         tags$br(),
                                                         "Example: ", tags$code("curl \"https://bcglab.cibio.unitn.it/hapscoredbAPI/data?genes=ENSG00000164002,ENSG00000065978\"")
                                                 ),
+                                                accordion_panel(
+                                                        title = "Cite",
+                                                        h3("If you use HapScoreDB, please cite the original pubblication:"),
+                                                        tags$br(),
+                                                        "Fabio Mazza, Filippo Gastaldello, Davide Dalfovo, Gianluca Lattanzi, Alessandro Romanel,",
+                                                        tags$br(),
+                                                        "HapScoreDB: a database of protein language model functional scores for haplotype-resolved
+                                                    protein sequences, Nucleic Acids Research, 2025",
+                                                        tags$br(),
+                                                        "https://doi.org/10.1093/nar/gkaf1184"
+                                                ),
                                                 open = FALSE
                                         )
                                 )
